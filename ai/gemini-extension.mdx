@@ -1,0 +1,124 @@
+---
+title: Gemini CLI Extension
+description: Install the Google Workspace CLI as a Gemini CLI extension
+---
+
+## Overview
+
+The Google Workspace CLI can be installed as an extension for the [Gemini CLI](https://github.com/google/gemini-cli), giving your Gemini agent direct access to all `gws` commands and Google Workspace agent skills.
+
+## Installation
+
+### Step 1: Authenticate the CLI
+
+Before installing the extension, authenticate the `gws` CLI:
+
+```bash
+gws auth setup
+```
+
+This walks you through creating a Google Cloud project, enabling APIs, and logging in with OAuth.
+
+If you've already completed setup, you can run:
+
+```bash
+gws auth login
+```
+
+### Step 2: Install the Extension
+
+Install the extension into the Gemini CLI:
+
+```bash
+gemini extensions install https://github.com/googleworkspace/cli
+```
+
+This command reads the `gemini-extension.json` configuration from the repository and registers the extension with Gemini.
+
+## Authentication Inheritance
+
+The Gemini CLI extension automatically inherits your `gws` CLI credentials. You don't need to configure authentication separately for the extension.
+
+Because `gws` handles its own authentication securely:
+
+1. You authenticate your terminal once using `gws auth setup` or `gws auth login`
+2. Credentials are encrypted at rest (AES-256-GCM) with the key stored in your OS keyring
+3. The extension reads these credentials when invoked by Gemini
+4. Your Gemini agent can execute `gws` commands without additional auth setup
+
+## Use Cases
+
+Once installed, your Gemini agent can:
+
+### Manage Google Drive Files
+
+```
+List my 5 most recent Drive files
+Create a new folder called "Q1 Reports"
+Share document ABC123 with team@example.com
+```
+
+### Automate Gmail
+
+```
+Show my unread inbox summary
+Send an email to colleague@example.com with subject "Meeting follow-up"
+Find emails from boss@example.com about project X
+```
+
+### Schedule Calendar Events
+
+```
+Show my agenda for today
+Create a meeting tomorrow at 2pm with attendees
+Find free time slots for a 1-hour meeting this week
+```
+
+### Work with Sheets and Docs
+
+```
+Create a new spreadsheet for tracking expenses
+Read values from spreadsheet ABC123 range A1:C10
+Append a row to my budget spreadsheet
+```
+
+### Multi-Service Workflows
+
+```
+Create a post-mortem doc, schedule a review meeting, and notify the team in Chat
+Find Drive files shared outside the organization
+Save email attachments from messages labeled "invoices" to a Drive folder
+```
+
+## Extension Configuration
+
+The extension is defined by `gemini-extension.json` in the repository:
+
+```json
+{
+  "name": "google-workspace-cli",
+  "version": "latest",
+  "description": "CLI tool for managing Google Workspace resources dynamically using Discovery APIs.",
+  "contextFileName": "CONTEXT.md"
+}
+```
+
+The `CONTEXT.md` file provides instructions to the Gemini agent on how to use the CLI effectively.
+
+## Updating the Extension
+
+To update the extension to the latest version:
+
+```bash
+# Update the gws CLI
+npm install -g @googleworkspace/cli@latest
+
+# Reinstall the extension
+gemini extensions install https://github.com/googleworkspace/cli
+```
+
+## Next Steps
+
+- [Agent Skills](/ai/agent-skills) - Browse and install 100+ agent skills
+- [MCP Server](/ai/mcp-server) - Use the CLI with other MCP-compatible clients
+- [Authentication](/authentication/setup) - Learn more about auth workflows

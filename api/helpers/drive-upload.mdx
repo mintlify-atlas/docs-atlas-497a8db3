@@ -1,0 +1,90 @@
+---
+title: 'drive +upload'
+description: 'Upload a file to Google Drive with automatic metadata detection'
+---
+
+## Overview
+
+The `gws drive +upload` helper command simplifies uploading files to Google Drive by automatically detecting MIME types and handling metadata. It wraps the Drive API's `files.create` method with intelligent defaults.
+
+## Command Syntax
+
+```bash
+gws drive +upload <file> [--parent FOLDER_ID] [--name FILENAME]
+```
+
+## Parameters
+
+<ParamField path="file" type="string" required>
+  Path to the local file to upload
+</ParamField>
+
+<ParamField path="parent" type="string">
+  Parent folder ID where the file should be uploaded. If not specified, the file is uploaded to the root of "My Drive"
+</ParamField>
+
+<ParamField path="name" type="string">
+  Target filename in Drive. If not specified, uses the source filename from the local path
+</ParamField>
+
+## Examples
+
+### Basic upload
+
+Upload a file to the root of My Drive:
+
+```bash
+gws drive +upload ./report.pdf
+```
+
+### Upload to specific folder
+
+Upload a file to a specific parent folder:
+
+```bash
+gws drive +upload ./report.pdf --parent 1a2b3c4d5e6f7g8h9i0j
+```
+
+### Upload with custom name
+
+Upload a file with a different name than the source:
+
+```bash
+gws drive +upload ./data.csv --name 'Sales Data Q1 2026.csv'
+```
+
+### Combined options
+
+```bash
+gws drive +upload ./presentation.pptx --parent 1a2b3c4d --name 'Team Meeting March.pptx'
+```
+
+## Output Format
+
+Returns a JSON object containing the uploaded file's metadata:
+
+```json
+{
+  "id": "1a2b3c4d5e6f7g8h9i0j",
+  "name": "report.pdf",
+  "mimeType": "application/pdf",
+  "parents": ["1x2y3z4a5b6c7d8e9f0g"],
+  "createdTime": "2026-03-05T10:30:00.000Z",
+  "modifiedTime": "2026-03-05T10:30:00.000Z"
+}
+```
+
+## How It Works
+
+1. **MIME Type Detection**: Automatically detects the file's MIME type based on its extension
+2. **Filename Handling**: Uses the source filename unless `--name` is provided
+3. **Metadata Building**: Constructs the required metadata JSON with `name` and optional `parents` fields
+4. **Upload**: Executes the Drive API `files.create` method with multipart upload
+
+## Related
+
+- [gws-drive-upload skill](/skills/gws-drive-upload) — AI agent integration
+- For more advanced upload options (custom properties, permissions), use the raw API:
+  ```bash
+  gws drive files create --params '{...}' --upload ./file.pdf
+  ```

@@ -1,0 +1,275 @@
+---
+title: "Calendar Commands"
+description: "Manage calendars and events with Google Calendar API"
+---
+
+## Overview
+
+The Calendar service provides access to Google Calendar v3 API for managing calendars, events, and event reminders.
+
+**API**: `calendar` (v3)
+
+## Common Use Cases
+
+- Create and update events
+- List upcoming events
+- Manage calendar sharing
+- Find free/busy times
+- Set up event notifications
+
+## Helper Commands
+
+### `+insert`
+
+Create a new event with simplified syntax:
+
+```bash
+gws calendar +insert \
+  --summary "Team Standup" \
+  --start "2026-03-10T09:00:00Z" \
+  --end "2026-03-10T09:30:00Z" \
+  --location "Conference Room A" \
+  --attendee alice@example.com \
+  --attendee bob@example.com
+```
+
+**Features**:
+- Automatic ISO 8601 date handling
+- Multiple attendees supported
+- Optional location and description
+
+## Command Examples
+
+### List Events
+
+<CodeGroup>
+
+```bash Upcoming events
+gws calendar events list --params '{"calendarId": "primary", "timeMin": "2026-03-05T00:00:00Z", "maxResults": 10}'
+```
+
+```bash Today's events
+gws calendar events list --params '{"calendarId": "primary", "timeMin": "2026-03-05T00:00:00Z", "timeMax": "2026-03-06T00:00:00Z"}'
+```
+
+```bash Search events
+gws calendar events list --params '{"calendarId": "primary", "q": "standup"}'
+```
+
+</CodeGroup>
+
+<Accordion title="Example Response">
+```json
+{
+  "kind": "calendar#events",
+  "items": [
+    {
+      "id": "abc123",
+      "summary": "Team Standup",
+      "start": {"dateTime": "2026-03-10T09:00:00Z"},
+      "end": {"dateTime": "2026-03-10T09:30:00Z"},
+      "status": "confirmed",
+      "attendees": [
+        {"email": "alice@example.com", "responseStatus": "accepted"}
+      ]
+    }
+  ]
+}
+```
+</Accordion>
+
+### Get Event Details
+
+```bash
+gws calendar events get --params '{"calendarId": "primary", "eventId": "EVENT_ID"}'
+```
+
+### Create an Event
+
+```bash Simple event
+gws calendar events insert --params '{"calendarId": "primary"}' --json '{
+  "summary": "Project Review",
+  "start": {"dateTime": "2026-03-10T14:00:00Z"},
+  "end": {"dateTime": "2026-03-10T15:00:00Z"}
+}'
+```
+
+```bash All-day event
+gws calendar events insert --params '{"calendarId": "primary"}' --json '{
+  "summary": "Company Holiday",
+  "start": {"date": "2026-03-17"},
+  "end": {"date": "2026-03-18"}
+}'
+```
+
+```bash Event with attendees
+gws calendar events insert --params '{"calendarId": "primary"}' --json '{
+  "summary": "Team Meeting",
+  "start": {"dateTime": "2026-03-10T10:00:00Z"},
+  "end": {"dateTime": "2026-03-10T11:00:00Z"},
+  "attendees": [
+    {"email": "alice@example.com"},
+    {"email": "bob@example.com"}
+  ],
+  "conferenceData": {
+    "createRequest": {"requestId": "random-string"}
+  }
+}' --params '{"conferenceDataVersion": 1}'
+```
+
+### Update an Event
+
+```bash Reschedule
+gws calendar events update --params '{"calendarId": "primary", "eventId": "EVENT_ID"}' --json '{
+  "start": {"dateTime": "2026-03-11T14:00:00Z"},
+  "end": {"dateTime": "2026-03-11T15:00:00Z"}
+}'
+```
+
+```bash Add attendees
+gws calendar events patch --params '{"calendarId": "primary", "eventId": "EVENT_ID"}' --json '{
+  "attendees": [
+    {"email": "alice@example.com"},
+    {"email": "charlie@example.com"}
+  ]
+}'
+```
+
+### Delete an Event
+
+```bash
+gws calendar events delete --params '{"calendarId": "primary", "eventId": "EVENT_ID"}'
+```
+
+### List Calendars
+
+```bash
+gws calendar calendarList list
+```
+
+<Accordion title="Example Response">
+```json
+{
+  "kind": "calendar#calendarList",
+  "items": [
+    {
+      "id": "user@example.com",
+      "summary": "user@example.com",
+      "timeZone": "America/Los_Angeles",
+      "accessRole": "owner"
+    },
+    {
+      "id": "team@example.com",
+      "summary": "Team Calendar",
+      "accessRole": "reader"
+    }
+  ]
+}
+```
+</Accordion>
+
+### Free/Busy Query
+
+```bash
+gws calendar freebusy query --json '{
+  "timeMin": "2026-03-10T00:00:00Z",
+  "timeMax": "2026-03-10T23:59:59Z",
+  "items": [
+    {"id": "alice@example.com"},
+    {"id": "bob@example.com"}
+  ]
+}'
+```
+
+<Accordion title="Example Response">
+```json
+{
+  "calendars": {
+    "alice@example.com": {
+      "busy": [
+        {
+          "start": "2026-03-10T09:00:00Z",
+          "end": "2026-03-10T10:00:00Z"
+        }
+      ]
+    },
+    "bob@example.com": {
+      "busy": []
+    }
+  }
+}
+```
+</Accordion>
+
+### Manage Calendar Sharing
+
+```bash List ACL rules
+gws calendar acl list --params '{"calendarId": "PRIMARY"}'
+```
+
+```bash Grant access
+gws calendar acl insert --params '{"calendarId": "CALENDAR_ID"}' --json '{
+  "role": "reader",
+  "scope": {
+    "type": "user",
+    "value": "alice@example.com"
+  }
+}'
+```
+
+```bash Make calendar public
+gws calendar acl insert --params '{"calendarId": "CALENDAR_ID"}' --json '{
+  "role": "reader",
+  "scope": {"type": "default"}
+}'
+```
+
+### Event Reminders
+
+```bash Set reminder overrides
+gws calendar events update --params '{"calendarId": "primary", "eventId": "EVENT_ID"}' --json '{
+  "reminders": {
+    "useDefault": false,
+    "overrides": [
+      {"method": "email", "minutes": 1440},
+      {"method": "popup", "minutes": 10}
+    ]
+  }
+}'
+```
+
+## Recurring Events
+
+```bash Create weekly meeting
+gws calendar events insert --params '{"calendarId": "primary"}' --json '{
+  "summary": "Weekly Sync",
+  "start": {"dateTime": "2026-03-10T10:00:00Z", "timeZone": "America/Los_Angeles"},
+  "end": {"dateTime": "2026-03-10T10:30:00Z", "timeZone": "America/Los_Angeles"},
+  "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"]
+}'
+```
+
+## Resources
+
+- `events` - Calendar events
+- `calendarList` - User's calendar list
+- `calendars` - Calendar metadata
+- `acl` - Access control
+- `freebusy` - Availability queries
+- `settings` - User settings
+
+Use `gws calendar <resource> --help` to see all available methods.
+
+## Related Commands
+
+<CardGroup cols={2}>
+
+<Card title="Gmail" icon="envelope" href="/commands/gmail">
+  Email event invitations
+</Card>
+
+<Card title="Meet" icon="video" href="/commands/all-services">
+  Video conferencing
+</Card>
+
+</CardGroup>

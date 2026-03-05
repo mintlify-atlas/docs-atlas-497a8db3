@@ -1,0 +1,287 @@
+---
+title: "Slides API"
+description: "Read and write presentations"
+---
+
+## Overview
+
+The Google Slides API allows you to create, read, and update Google Slides presentations programmatically.
+
+**API Name:** `slides`  
+**Version:** `v1`  
+**Official Documentation:** [Slides API Reference](https://developers.google.com/slides/api/reference/rest)
+
+## Common Resources
+
+### Presentations
+
+Create and manage Google Slides presentations.
+
+<ParamField path="presentationId" type="string" required>
+  The presentation ID (found in the URL)
+</ParamField>
+
+<ParamField path="title" type="string">
+  The presentation title
+</ParamField>
+
+### Pages (Slides)
+
+Manage individual slides within a presentation.
+
+<ParamField path="presentationId" type="string" required>
+  The presentation ID
+</ParamField>
+
+<ParamField path="pageObjectId" type="string">
+  The slide object ID
+</ParamField>
+
+## Common Methods
+
+### Create Presentation
+
+```bash
+gws slides presentations create --json '{
+  "title": "Q1 Results 2026"
+}'
+```
+
+<ResponseField name="presentationId" type="string">
+  The ID of the created presentation
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  The presentation title
+</ResponseField>
+
+### Get Presentation
+
+```bash
+gws slides presentations get --params '{
+  "presentationId": "1a2b3c4d5e6f7g8h9i"
+}'
+```
+
+<ResponseField name="presentationId" type="string">
+  The presentation ID
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  The presentation title
+</ResponseField>
+
+<ResponseField name="slides" type="array">
+  Array of slide objects
+</ResponseField>
+
+### Batch Update
+
+```bash
+gws slides presentations batchUpdate \
+  --params '{"presentationId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [
+      {
+        "createSlide": {
+          "objectId": "slide001"
+        }
+      }
+    ]
+  }'
+```
+
+## Presentation Operations
+
+<CodeGroup>
+```bash Create slide
+gws slides presentations batchUpdate \
+  --params '{"presentationId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "createSlide": {
+        "objectId": "newSlide1",
+        "insertionIndex": 1
+      }
+    }]
+  }'
+```
+
+```bash Insert text
+gws slides presentations batchUpdate \
+  --params '{"presentationId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [
+      {
+        "createShape": {
+          "objectId": "textBox1",
+          "shapeType": "TEXT_BOX",
+          "elementProperties": {
+            "pageObjectId": "slide001",
+            "size": {"width": {"magnitude": 300, "unit": "PT"}}
+          }
+        }
+      },
+      {
+        "insertText": {
+          "objectId": "textBox1",
+          "text": "Hello, Slides!"
+        }
+      }
+    ]
+  }'
+```
+
+```bash Insert image
+gws slides presentations batchUpdate \
+  --params '{"presentationId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "createImage": {
+        "url": "https://example.com/image.png",
+        "elementProperties": {
+          "pageObjectId": "slide001",
+          "size": {"width": {"magnitude": 400, "unit": "PT"}}
+        }
+      }
+    }]
+  }'
+```
+
+```bash Delete slide
+gws slides presentations batchUpdate \
+  --params '{"presentationId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "deleteObject": {
+        "objectId": "slide001"
+      }
+    }]
+  }'
+```
+</CodeGroup>
+
+## Response Format
+
+Create presentation response:
+
+```json
+{
+  "presentationId": "1a2b3c4d5e6f7g8h9i",
+  "title": "Q1 Results 2026",
+  "slides": [
+    {
+      "objectId": "slide001",
+      "slideProperties": {}
+    }
+  ],
+  "pageSize": {
+    "width": {"magnitude": 720, "unit": "EMU"},
+    "height": {"magnitude": 540, "unit": "EMU"}
+  }
+}
+```
+
+Batch update response:
+
+```json
+{
+  "presentationId": "1a2b3c4d5e6f7g8h9i",
+  "replies": [
+    {
+      "createSlide": {
+        "objectId": "newSlide1"
+      }
+    }
+  ]
+}
+```
+
+## Key Resources
+
+- `presentations` - Create, read, and update presentations
+- `presentations.pages` - Manage slides and layouts
+
+## Common Request Types
+
+The `batchUpdate` method accepts various request types:
+
+- `createSlide` - Add a new slide
+- `deleteObject` - Delete a slide or element
+- `createShape` - Add shapes and text boxes
+- `createImage` - Insert images
+- `createVideo` - Embed videos
+- `createTable` - Insert tables
+- `insertText` - Add text to shapes
+- `updateTextStyle` - Format text
+- `replaceAllText` - Find and replace text
+- `updateSlidesPosition` - Reorder slides
+
+## Advanced Examples
+
+### Create Slide from Layout
+
+```bash
+gws slides presentations batchUpdate \
+  --params '{"presentationId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "createSlide": {
+        "objectId": "newSlide2",
+        "slideLayoutReference": {
+          "predefinedLayout": "TITLE_AND_BODY"
+        }
+      }
+    }]
+  }'
+```
+
+### Replace Placeholder Text
+
+```bash
+gws slides presentations batchUpdate \
+  --params '{"presentationId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "replaceAllText": {
+        "containsText": {"text": "{{company}}"},
+        "replaceText": "Acme Corp"
+      }
+    }]
+  }'
+```
+
+### Insert Chart from Sheets
+
+```bash
+gws slides presentations batchUpdate \
+  --params '{"presentationId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "createSheetsChart": {
+        "spreadsheetId": "spreadsheet123",
+        "chartId": 456,
+        "linkingMode": "LINKED",
+        "elementProperties": {
+          "pageObjectId": "slide001"
+        }
+      }
+    }]
+  }'
+```
+
+## Learn More
+
+- [Slides API Guide](https://developers.google.com/slides/api/guides/overview)
+- [Add text and shapes](https://developers.google.com/slides/api/guides/add-text)
+- [Add images and videos](https://developers.google.com/slides/api/guides/add-image)
+- [Merge presentations](https://developers.google.com/slides/api/guides/merge)
+
+## Schema Inspection
+
+Before calling any method, inspect its schema:
+
+```bash
+gws schema slides.presentations.create
+gws schema slides.presentations.batchUpdate
+```

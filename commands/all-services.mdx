@@ -1,0 +1,175 @@
+---
+title: "All Services Reference"
+description: "Complete table of all Google Workspace services available in gws"
+---
+
+## Available Services
+
+The `gws` CLI dynamically supports all these Google Workspace and Google Cloud APIs. Use any alias below as the `<service>` argument.
+
+| Alias(es) | API Name | Version | Description |
+|-----------|----------|---------|-------------|
+| `drive` | drive | v3 | Manage files, folders, and shared drives |
+| `sheets` | sheets | v4 | Read and write spreadsheets |
+| `gmail` | gmail | v1 | Send, read, and manage email |
+| `calendar` | calendar | v3 | Manage calendars and events |
+| `admin`, `directory` | admin | directory_v1 | Manage users, groups, and devices |
+| `admin-reports`, `reports` | admin | reports_v1 | Audit logs and usage reports |
+| `docs` | docs | v1 | Read and write Google Docs |
+| `slides` | slides | v1 | Read and write presentations |
+| `tasks` | tasks | v1 | Manage task lists and tasks |
+| `people` | people | v1 | Manage contacts and profiles |
+| `chat` | chat | v1 | Manage Chat spaces and messages |
+| `vault` | vault | v1 | Manage eDiscovery holds and exports |
+| `groupssettings` | groupssettings | v1 | Manage Google Groups settings |
+| `reseller` | reseller | v1 | Manage Workspace subscriptions |
+| `licensing` | licensing | v1 | Manage product licenses |
+| `apps-script`, `script` | script | v1 | Manage and execute Apps Script projects |
+| `classroom` | classroom | v1 | Manage classes, rosters, and coursework |
+| `cloudidentity` | cloudidentity | v1 | Manage identity groups and memberships |
+| `alertcenter` | alertcenter | v1beta1 | Manage Workspace security alerts |
+| `forms` | forms | v1 | Read and write Google Forms |
+| `keep` | keep | v1 | Manage Google Keep notes |
+| `meet` | meet | v2 | Manage Google Meet conferences |
+| `events` | workspaceevents | v1 | Subscribe to Google Workspace events |
+| `modelarmor` | modelarmor | v1 | Filter user-generated content for safety |
+| `workflow`, `wf` | workflow | v1 | Cross-service productivity workflows |
+
+## Usage
+
+Every service listed above can be used with `gws`:
+
+```bash
+gws <service> <resource> <method> [flags]
+```
+
+### Examples
+
+<CodeGroup>
+
+```bash Drive
+gws drive files list --params '{"pageSize": 10}'
+```
+
+```bash Gmail
+gws gmail users messages list --params '{"userId": "me", "maxResults": 5}'
+```
+
+```bash Calendar
+gws calendar events list --params '{"calendarId": "primary"}'
+```
+
+```bash Admin
+gws admin users list --params '{"customer": "my_customer"}'
+```
+
+```bash Classroom
+gws classroom courses list
+```
+
+```bash Meet
+gws meet conferenceRecords list
+```
+
+</CodeGroup>
+
+## Discovery
+
+The `gws` CLI reads Google's [Discovery Service](https://developers.google.com/discovery) at runtime. If Google adds new API endpoints or methods, `gws` automatically picks them up without requiring an update.
+
+### Unlisted APIs
+
+To use an API not in the table above, specify it using `<api>:<version>` syntax:
+
+```bash
+gws pubsub:v1 projects topics list --params '{"project": "projects/PROJECT_ID"}'
+```
+
+## Introspecting Services
+
+Use `--help` at any level:
+
+```bash Service-level help
+gws drive --help
+```
+
+```bash Resource-level help
+gws drive files --help
+```
+
+```bash Method-level help
+gws drive files list --help
+```
+
+### Schema Introspection
+
+Inspect request/response schemas for any method:
+
+```bash
+gws schema drive.files.list
+gws schema gmail.users.messages.send --resolve-refs
+```
+
+## Service-Specific Pages
+
+Detailed command examples for popular services:
+
+<CardGroup cols={2}>
+
+<Card title="Drive" icon="google-drive" href="/commands/drive">
+  Files, folders, and permissions
+</Card>
+
+<Card title="Gmail" icon="envelope" href="/commands/gmail">
+  Email operations
+</Card>
+
+<Card title="Calendar" icon="calendar" href="/commands/calendar">
+  Events and scheduling
+</Card>
+
+<Card title="Sheets" icon="table" href="/commands/sheets">
+  Spreadsheet data
+</Card>
+
+<Card title="Docs" icon="file-lines" href="/commands/docs">
+  Document editing
+</Card>
+
+<Card title="Chat" icon="comments" href="/commands/chat">
+  Messaging and spaces
+</Card>
+
+<Card title="Admin" icon="user-gear" href="/commands/admin">
+  User and group management
+</Card>
+
+<Card title="Overview" icon="book" href="/commands/overview">
+  Command structure and patterns
+</Card>
+
+</CardGroup>
+
+## Helper Commands
+
+Some services include helper commands (prefixed with `+`):
+
+| Service | Helper | Description |
+|---------|--------|-------------|
+| Drive | `+upload` | Upload a file with auto-detection |
+| Gmail | `+send` | Send a simple email |
+| Gmail | `+watch` | Set up push notifications |
+| Gmail | `+triage` | Query and mark messages as read |
+| Calendar | `+insert` | Create an event with simple syntax |
+| Sheets | `+append` | Append rows to a spreadsheet |
+| Sheets | `+read` | Read values from a range |
+| Docs | `+write` | Append text to a document |
+| Chat | `+send` | Send a message to a space |
+
+See individual service pages for helper command documentation.
+
+## Authentication
+
+All services use the same authentication mechanism. See the [Authentication](/authentication) guide for setup instructions.
+
+Some services (like Admin SDK) require specific OAuth scopes or domain-wide delegation. Check the service-specific pages for details.

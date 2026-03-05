@@ -1,0 +1,272 @@
+---
+title: "Admin Commands"
+description: "Manage users, groups, and devices with Admin SDK"
+---
+
+## Overview
+
+The Admin service provides access to the Admin SDK Directory API (v1) for managing users, groups, organizational units, and devices in a Google Workspace domain.
+
+**API**: `admin` (directory_v1)
+
+**Aliases**: `admin`, `directory`
+
+<Note>
+Admin commands require domain administrator privileges and domain-wide delegation when using a service account.
+</Note>
+
+## Common Use Cases
+
+- Provision and manage users
+- Create and manage groups
+- Organize users in organizational units
+- Manage mobile devices
+- Audit user activity
+
+## Command Examples
+
+### List Users
+
+<CodeGroup>
+
+```bash All users
+gws admin users list --params '{"customer": "my_customer", "maxResults": 100}'
+```
+
+```bash Search by name
+gws admin users list --params '{"customer": "my_customer", "query": "name:alice"}'
+```
+
+```bash Filter by OU
+gws admin users list --params '{"customer": "my_customer", "query": "orgUnitPath=/Engineering"}'
+```
+
+```bash Get all users (paginated)
+gws admin users list --params '{"customer": "my_customer", "maxResults": 500}' --page-all
+```
+
+</CodeGroup>
+
+<Accordion title="Example Response">
+```json
+{
+  "users": [
+    {
+      "id": "123456789",
+      "primaryEmail": "alice@example.com",
+      "name": {
+        "givenName": "Alice",
+        "familyName": "Smith",
+        "fullName": "Alice Smith"
+      },
+      "isAdmin": false,
+      "suspended": false,
+      "orgUnitPath": "/Engineering",
+      "creationTime": "2025-01-15T09:00:00.000Z"
+    }
+  ]
+}
+```
+</Accordion>
+
+### Get User Details
+
+```bash
+gws admin users get --params '{"userKey": "alice@example.com"}'
+```
+
+### Create a User
+
+```bash
+gws admin users insert --json '{
+  "primaryEmail": "bob@example.com",
+  "name": {
+    "givenName": "Bob",
+    "familyName": "Jones"
+  },
+  "password": "TempPassword123!",
+  "changePasswordAtNextLogin": true,
+  "orgUnitPath": "/Engineering"
+}'
+```
+
+### Update a User
+
+```bash Change name
+gws admin users update --params '{"userKey": "bob@example.com"}' --json '{
+  "name": {
+    "givenName": "Robert",
+    "familyName": "Jones"
+  }
+}'
+```
+
+```bash Move to different OU
+gws admin users update --params '{"userKey": "bob@example.com"}' --json '{"orgUnitPath": "/Sales"}'
+```
+
+### Suspend a User
+
+```bash
+gws admin users update --params '{"userKey": "bob@example.com"}' --json '{"suspended": true}'
+```
+
+### Delete a User
+
+```bash
+gws admin users delete --params '{"userKey": "bob@example.com"}'
+```
+
+### List Groups
+
+```bash
+gws admin groups list --params '{"customer": "my_customer", "maxResults": 100}'
+```
+
+<Accordion title="Example Response">
+```json
+{
+  "groups": [
+    {
+      "id": "group123",
+      "email": "engineering@example.com",
+      "name": "Engineering Team",
+      "description": "All engineering staff",
+      "directMembersCount": "25"
+    }
+  ]
+}
+```
+</Accordion>
+
+### Create a Group
+
+```bash
+gws admin groups insert --json '{
+  "email": "project-alpha@example.com",
+  "name": "Project Alpha",
+  "description": "Team working on Project Alpha"
+}'
+```
+
+### Add Group Member
+
+```bash
+gws admin members insert --params '{"groupKey": "engineering@example.com"}' --json '{
+  "email": "alice@example.com",
+  "role": "MEMBER"
+}'
+```
+
+Roles: `MEMBER`, `MANAGER`, `OWNER`
+
+### List Group Members
+
+```bash
+gws admin members list --params '{"groupKey": "engineering@example.com"}'
+```
+
+### Remove Group Member
+
+```bash
+gws admin members delete --params '{"groupKey": "engineering@example.com", "memberKey": "alice@example.com"}'
+```
+
+### List Organizational Units
+
+```bash
+gws admin orgunits list --params '{"customerId": "my_customer"}'
+```
+
+### Create an Organizational Unit
+
+```bash
+gws admin orgunits insert --params '{"customerId": "my_customer"}' --json '{
+  "name": "Marketing",
+  "parentOrgUnitPath": "/",
+  "description": "Marketing department"
+}'
+```
+
+### List Mobile Devices
+
+```bash
+gws admin mobiledevices list --params '{"customerId": "my_customer"}'
+```
+
+### Get Device Details
+
+```bash
+gws admin mobiledevices get --params '{"customerId": "my_customer", "resourceId": "DEVICE_ID"}'
+```
+
+### Wipe a Device
+
+```bash Account wipe
+gws admin mobiledevices action --params '{"customerId": "my_customer", "resourceId": "DEVICE_ID"}' --json '{"action": "account_wipe"}'
+```
+
+```bash Full wipe
+gws admin mobiledevices action --params '{"customerId": "my_customer", "resourceId": "DEVICE_ID"}' --json '{"action": "wipe"}'
+```
+
+## Query Syntax
+
+The `query` parameter supports powerful filtering:
+
+```bash Filter by email
+gws admin users list --params '{"customer": "my_customer", "query": "email:alice*"}'
+```
+
+```bash Multiple conditions
+gws admin users list --params '{"customer": "my_customer", "query": "orgUnitPath=/Engineering isAdmin=false"}'
+```
+
+```bash Suspended users
+gws admin users list --params '{"customer": "my_customer", "query": "isSuspended=true"}'
+```
+
+## Service Account Setup
+
+To use Admin commands with a service account:
+
+1. Enable domain-wide delegation in Google Cloud Console
+2. Grant the service account these OAuth scopes:
+   - `https://www.googleapis.com/auth/admin.directory.user`
+   - `https://www.googleapis.com/auth/admin.directory.group`
+   - `https://www.googleapis.com/auth/admin.directory.orgunit`
+   - `https://www.googleapis.com/auth/admin.directory.device.mobile`
+3. Set the `GOOGLE_WORKSPACE_CLI_IMPERSONATED_USER` environment variable to a domain admin:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_IMPERSONATED_USER=admin@example.com
+export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/path/to/service-account.json
+gws admin users list --params '{"customer": "my_customer"}'
+```
+
+## Resources
+
+- `users` - User accounts
+- `groups` - Groups
+- `members` - Group memberships
+- `orgunits` - Organizational units
+- `mobiledevices` - Mobile device management
+- `chromeosdevices` - Chrome OS devices
+- `domains` - Domain management
+- `customers` - Customer information
+
+Use `gws admin <resource> --help` to see all available methods.
+
+## Related Services
+
+<CardGroup cols={2}>
+
+<Card title="Admin Reports" icon="chart-line" href="/commands/all-services">
+  Audit logs and usage reports (admin-reports service)
+</Card>
+
+<Card title="Cloud Identity" icon="users" href="/commands/all-services">
+  Identity groups and memberships
+</Card>
+
+</CardGroup>

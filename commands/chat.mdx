@@ -1,0 +1,256 @@
+---
+title: "Chat Commands"
+description: "Manage Chat spaces and messages with Google Chat API"
+---
+
+## Overview
+
+The Chat service provides access to Google Chat v1 API for sending messages, managing spaces, and interacting with Chat apps.
+
+**API**: `chat` (v1)
+
+## Common Use Cases
+
+- Send messages to spaces
+- List and manage spaces
+- Create and manage chat apps
+- Upload attachments
+- Manage memberships
+
+## Helper Commands
+
+### `+send`
+
+Send a plain text message to a space:
+
+```bash
+gws chat +send --space spaces/AAAAxxxx --text 'Deploy complete!'
+```
+
+**Features**:
+- Simple text messaging
+- For cards or threaded replies, use the raw API
+
+## Command Examples
+
+### List Spaces
+
+```bash
+gws chat spaces list
+```
+
+<Accordion title="Example Response">
+```json
+{
+  "spaces": [
+    {
+      "name": "spaces/AAAAxxxx",
+      "type": "ROOM",
+      "displayName": "Engineering Team",
+      "spaceThreadingState": "THREADED_MESSAGES"
+    },
+    {
+      "name": "spaces/BBBByyyy",
+      "type": "DM",
+      "singleUserBotDm": false
+    }
+  ]
+}
+```
+</Accordion>
+
+### Get Space Details
+
+```bash
+gws chat spaces get --params '{"name": "spaces/AAAAxxxx"}'
+```
+
+### Create a Space
+
+```bash
+gws chat spaces create --json '{
+  "displayName": "Project Alpha",
+  "spaceType": "SPACE"
+}'
+```
+
+### Send a Message
+
+<CodeGroup>
+
+```bash Simple text
+gws chat spaces messages create \
+  --params '{"parent": "spaces/AAAAxxxx"}' \
+  --json '{"text": "Hello, team!"}'
+```
+
+```bash Using helper
+gws chat +send --space spaces/AAAAxxxx --text 'Build passed!'
+```
+
+```bash Threaded reply
+gws chat spaces messages create \
+  --params '{"parent": "spaces/AAAAxxxx", "messageReplyOption": "REPLY_MESSAGE_FALLBACK_TO_NEW_THREAD"}' \
+  --json '{"text": "Thanks for the update!", "thread": {"name": "spaces/AAAAxxxx/threads/THREADxxxx"}}'
+```
+
+</CodeGroup>
+
+<Accordion title="Example Response">
+```json
+{
+  "name": "spaces/AAAAxxxx/messages/MESSAGExxxx",
+  "sender": {
+    "name": "users/123456789",
+    "displayName": "Alice Smith",
+    "type": "HUMAN"
+  },
+  "text": "Hello, team!",
+  "createTime": "2026-03-05T10:30:00.000Z",
+  "thread": {"name": "spaces/AAAAxxxx/threads/THREADxxxx"}
+}
+```
+</Accordion>
+
+### Send a Card Message
+
+```bash
+gws chat spaces messages create \
+  --params '{"parent": "spaces/AAAAxxxx"}' \
+  --json '{
+    "cardsV2": [
+      {
+        "cardId": "deploy-status",
+        "card": {
+          "header": {"title": "Deployment Status", "subtitle": "Production"},
+          "sections": [
+            {
+              "widgets": [
+                {"textParagraph": {"text": "✅ Deployment successful"}},
+                {"buttonList": {
+                  "buttons": [
+                    {"text": "View Logs", "onClick": {"openLink": {"url": "https://logs.example.com"}}}
+                  ]
+                }}
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }'
+```
+
+### List Messages
+
+```bash
+gws chat spaces messages list --params '{"parent": "spaces/AAAAxxxx", "pageSize": 10}'
+```
+
+### Update a Message
+
+```bash
+gws chat spaces messages patch \
+  --params '{"name": "spaces/AAAAxxxx/messages/MESSAGExxxx", "updateMask": "text"}' \
+  --json '{"text": "Updated message text"}'
+```
+
+### Delete a Message
+
+```bash
+gws chat spaces messages delete --params '{"name": "spaces/AAAAxxxx/messages/MESSAGExxxx"}'
+```
+
+### Manage Memberships
+
+```bash List members
+gws chat spaces members list --params '{"parent": "spaces/AAAAxxxx"}'
+```
+
+```bash Add member
+gws chat spaces members create \
+  --params '{"parent": "spaces/AAAAxxxx"}' \
+  --json '{"member": {"name": "users/123456789", "type": "HUMAN"}}'
+```
+
+```bash Remove member
+gws chat spaces members delete --params '{"name": "spaces/AAAAxxxx/members/MEMBERxxxx"}'
+```
+
+### Upload Attachment
+
+```bash
+gws chat media upload --params '{"parent": "spaces/AAAAxxxx"}' --upload ./image.png
+```
+
+Then reference the attachment in a message:
+
+```bash
+gws chat spaces messages create \
+  --params '{"parent": "spaces/AAAAxxxx"}' \
+  --json '{
+    "text": "Check out this screenshot:",
+    "attachment": [{"attachmentDataRef": {"resourceName": "ATTACHMENT_NAME"}}]
+  }'
+```
+
+### React to a Message
+
+```bash Add reaction
+gws chat spaces messages reactions create \
+  --params '{"parent": "spaces/AAAAxxxx/messages/MESSAGExxxx"}' \
+  --json '{"emoji": {"unicode": "👍"}}'
+```
+
+```bash List reactions
+gws chat spaces messages reactions list --params '{"parent": "spaces/AAAAxxxx/messages/MESSAGExxxx"}'
+```
+
+```bash Remove reaction
+gws chat spaces messages reactions delete --params '{"name": "spaces/AAAAxxxx/messages/MESSAGExxxx/reactions/REACTIONxxxx"}'
+```
+
+### Search Spaces
+
+```bash
+gws chat spaces search --params '{"query": "engineering"}'
+```
+
+## Message Threading
+
+Chat supports threaded conversations. When creating a message, you can:
+
+- Start a new thread (default)
+- Reply to an existing thread by passing `thread.name`
+- Use `messageReplyOption` to control fallback behavior
+
+```bash Reply to thread
+gws chat spaces messages create \
+  --params '{"parent": "spaces/AAAAxxxx", "messageReplyOption": "REPLY_MESSAGE_OR_FAIL"}' \
+  --json '{"text": "Reply in thread", "thread": {"name": "spaces/AAAAxxxx/threads/THREADxxxx"}}'
+```
+
+## Resources
+
+- `spaces` - Chat spaces (rooms, DMs)
+- `spaces.messages` - Messages in spaces
+- `spaces.members` - Space memberships
+- `spaces.messages.reactions` - Message reactions
+- `spaces.messages.attachments` - Message attachments
+- `media` - Upload media files
+
+Use `gws chat <resource> --help` to see all available methods.
+
+## Related Commands
+
+<CardGroup cols={2}>
+
+<Card title="Gmail" icon="envelope" href="/commands/gmail">
+  Email communication
+</Card>
+
+<Card title="Calendar" icon="calendar" href="/commands/calendar">
+  Schedule meetings
+</Card>
+
+</CardGroup>

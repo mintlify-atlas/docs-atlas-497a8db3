@@ -1,0 +1,306 @@
+---
+title: Authentication
+description: OAuth2, Service Accounts, token precedence, and credential security
+---
+
+## Overview
+
+The CLI supports multiple authentication workflows designed for different environments:
+
+- **Interactive OAuth2**: For local desktop use with browser-based consent
+- **Headless OAuth2**: For CI/CD and servers using exported credentials
+- **Service Accounts**: For server-to-server authentication with optional domain-wide delegation
+- **Pre-obtained Tokens**: For environments where another tool (e.g., `gcloud`) manages tokens
+
+All credentials except pre-obtained tokens are encrypted at rest using **AES-256-GCM** with keys stored in your OS keyring.
+
+## Authentication Methods
+
+### 1. Interactive OAuth2 (Desktop)
+
+**Best for**: Local development on machines with a browser.
+
+```bash
+gws auth setup   # One-time: creates GCP project, enables APIs, logs you in
+gws auth login   # Subsequent logins
+```
+
+<Note>
+  `gws auth setup` requires the [`gcloud` CLI](https://cloud.google.com/sdk/docs/install) to be installed and authenticated. It automates:
+  
+  - Creating a Google Cloud project
+  - Enabling required APIs
+  - Creating an OAuth client
+  - Completing the login flow
+</Note>
+
+**Manual Setup** (if you prefer explicit control):
+
+1. Create an OAuth client in [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Download `client_secret.json` and save to `~/.config/gws/client_secret.json`
+3. Run `gws auth login`
+
+The CLI starts a local loopback server at `http://127.0.0.1:8080` to receive the OAuth callback.
+
+### 2. Headless OAuth2 (CI/CD)
+
+**Best for**: Environments without a browser (servers, GitHub Actions, Docker containers).
+
+**Step 1**: Export credentials from a machine with a browser:
+
+```bash
+gws auth export --unmasked > credentials.json
+```
+
+<Warning>
+  The exported file contains your **refresh token** in plaintext. Treat it like a password:
+  
+  - Never commit to version control
+  - Use secrets management (GitHub Secrets, Vault, etc.)
+  - Restrict file permissions: `chmod 600 credentials.json`
+</Warning>
+
+**Step 2**: Use the exported credentials in your headless environment:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/path/to/credentials.json
+gws drive files list --params '{"pageSize": 5}'
+```
+
+Or in a Docker container:
+
+```dockerfile
+FROM node:20-slim
+RUN npm install -g @googleworkspace/cli
+COPY credentials.json /secrets/
+ENV GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/secrets/credentials.json
+CMD ["gws", "drive", "files", "list"]
+```
+
+### 3. Service Account
+
+**Best for**: Server-to-server authentication, automated workflows, production systems.
+
+**Step 1**: Create a Service Account in [Google Cloud Console](https://console.cloud.google.com/iam-admin/serviceaccounts).
+
+**Step 2**: Download the JSON key file.
+
+**Step 3**: Set the environment variable:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/path/to/service-account.json
+gws drive files list
+```
+
+#### Domain-Wide Delegation
+
+For accessing user data with a Service Account, enable **Domain-Wide Delegation**:
+
+1. In [Google Workspace Admin Console](https://admin.google.com), go to **Security > API Controls > Domain-wide Delegation**
+2. Add your Service Account's Client ID with the required scopes
+3. Set the impersonated user email:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/path/to/service-account.json
+export GOOGLE_WORKSPACE_CLI_IMPERSONATED_USER=admin@example.com
+gws drive files list  # Lists files for admin@example.com
+```
+
+Implementation in `src/auth.rs:86-98`:
+
+```rust
+Credential::ServiceAccount(key) => {
+    let token_cache = config_dir.join("service_account_token_cache.json");
+    let mut builder =
+        yup_oauth2::ServiceAccountAuthenticator::builder(key).with_storage(Box::new(
+            crate::token_storage::EncryptedTokenStorage::new(token_cache),
+        ));
+
+    // Check for impersonation
+    if let Some(user) = impersonated_user {
+        if !user.trim().is_empty() {
+            builder = builder.subject(user.to_string());
+        }
+    }
+
+    let auth = builder.build().await
+        .context("Failed to build service account authenticator")?;
+
+    let token = auth.token(scopes).await.context("Failed to get token")?;
+    Ok(token
+        .token()
+        .ok_or_else(|| anyhow::anyhow!("Token response contained no access token"))?
+        .to_string())
+}
+```
+
+### 4. Pre-obtained Access Token
+
+**Best for**: Environments where another tool already manages authentication.
+
+```bash
+export GOOGLE_WORKSPACE_CLI_TOKEN=$(gcloud auth print-access-token)
+gws gmail users messages list --params '{"userId": "me"}'
+```
+
+<Warning>
+  Access tokens expire after **1 hour**. For long-running processes, use OAuth2 or Service Account credentials (which support automatic refresh).
+</Warning>
+
+## Credential Precedence
+
+When multiple credential sources are available, the CLI uses this priority order:
+
+| Priority | Source                             | Set via                                 | Supports Refresh |
+| -------- | ---------------------------------- | --------------------------------------- | ---------------- |
+| 1        | Access token                       | `GOOGLE_WORKSPACE_CLI_TOKEN`            | No               |
+| 2        | Credentials file                   | `GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE` | Yes              |
+| 3        | Encrypted credentials (OS keyring) | `gws auth login`                        | Yes              |
+| 4        | Plaintext credentials              | `~/.config/gws/credentials.json`        | Yes              |
+
+Implementation in `src/auth.rs:41-61`:
+
+```rust
+pub async fn get_token(scopes: &[&str]) -> anyhow::Result<String> {
+    // 0. Direct token from env var (highest priority, bypasses all credential loading)
+    if let Ok(token) = std::env::var("GOOGLE_WORKSPACE_CLI_TOKEN") {
+        if !token.is_empty() {
+            return Ok(token);
+        }
+    }
+
+    let creds_file = std::env::var("GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE").ok();
+    let impersonated_user = std::env::var("GOOGLE_WORKSPACE_CLI_IMPERSONATED_USER").ok();
+    let config_dir = dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("gws");
+
+    let enc_path = credential_store::encrypted_credentials_path();
+    let default_path = config_dir.join("credentials.json");
+
+    let creds = load_credentials_inner(creds_file.as_deref(), &enc_path, &default_path).await?;
+
+    get_token_inner(scopes, creds, &config_dir, impersonated_user.as_deref()).await
+}
+```
+
+## Security Features
+
+### AES-256-GCM Encryption
+
+All locally stored credentials (from `gws auth login`) are encrypted at rest:
+
+- **Algorithm**: AES-256-GCM (authenticated encryption)
+- **Key Storage**: OS keyring (Keychain on macOS, Windows Credential Manager, Secret Service on Linux)
+- **Encrypted File**: `~/.config/gws/credentials.enc`
+
+Implementation uses the [`keyring`](https://docs.rs/keyring/) crate:
+
+```rust
+// Store encryption key in OS keyring
+let entry = keyring::Entry::new("gws-cli", "encryption-key")?;
+let key = generate_or_retrieve_key(&entry)?;
+
+// Encrypt credentials with AES-256-GCM
+let cipher = Aes256Gcm::new(GenericArray::from_slice(&key));
+let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+let ciphertext = cipher.encrypt(&nonce, plaintext.as_bytes())
+    .expect("encryption failure");
+```
+
+### Token Caching
+
+Access tokens are cached separately from credentials to minimize refresh requests:
+
+- **OAuth2 tokens**: `~/.config/gws/token_cache.json` (encrypted)
+- **Service Account tokens**: `~/.config/gws/service_account_token_cache.json` (encrypted)
+
+Tokens are refreshed automatically when they expire (typically after 1 hour).
+
+### Scope Minimization
+
+The CLI only requests scopes required by the specific API method being invoked. Scopes are read from the Discovery Document:
+
+```rust
+// From src/discovery.rs:84-86
+pub struct RestMethod {
+    // ...
+    #[serde(default)]
+    pub scopes: Vec<String>,
+}
+```
+
+Example from Drive API:
+
+```json
+{
+  "methods": {
+    "list": {
+      "scopes": [
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/drive.readonly"
+      ]
+    }
+  }
+}
+```
+
+## Environment Variables
+
+All environment variables can also be defined in a `.env` file in your working directory:
+
+```bash
+# .env
+GOOGLE_WORKSPACE_CLI_TOKEN=ya29.a0AfH6SMB...
+GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/secrets/credentials.json
+GOOGLE_WORKSPACE_CLI_IMPERSONATED_USER=admin@example.com
+```
+
+The CLI loads `.env` automatically via the [`dotenvy`](https://docs.rs/dotenvy/) crate.
+
+## Troubleshooting
+
+### "No credentials found"
+
+You haven't authenticated yet. Run:
+
+```bash
+gws auth setup   # or gws auth login
+```
+
+### "Token response contained no access token"
+
+Your credentials file is malformed or missing required fields. Expected format:
+
+```json
+{
+  "client_id": "...",
+  "client_secret": "...",
+  "refresh_token": "...",
+  "type": "authorized_user"
+}
+```
+
+### "Failed to build service account authenticator"
+
+Your Service Account JSON key is invalid or missing required fields. Download a fresh key from Google Cloud Console.
+
+### Testing Credential Precedence
+
+To verify which credential source is being used, set the token env var to a dummy value:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_TOKEN="test-token"
+gws drive files list  # Will fail with 401, but proves env var takes precedence
+```
+
+## Related Concepts
+
+<CardGroup cols={2}>
+  <Card title="Dynamic Discovery" icon="puzzle" href="/concepts/dynamic-discovery">
+    How the CLI builds commands at runtime
+  </Card>
+  <Card title="Auth Commands" icon="terminal" href="/auth/login">
+    Detailed reference for all auth commands
+  </Card>
+</CardGroup>

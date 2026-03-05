@@ -1,0 +1,255 @@
+---
+title: "Sheets API"
+description: "Read and write spreadsheets"
+---
+
+## Overview
+
+The Google Sheets API allows you to read, write, and format spreadsheet data programmatically.
+
+**API Name:** `sheets`  
+**Version:** `v4`  
+**Official Documentation:** [Sheets API Reference](https://developers.google.com/sheets/api/reference/rest)
+
+## Common Resources
+
+### Spreadsheets
+
+Create and manage spreadsheets.
+
+<ParamField path="spreadsheetId" type="string" required>
+  The spreadsheet ID (found in the URL)
+</ParamField>
+
+<ParamField path="range" type="string">
+  A1 notation range (e.g., `"Sheet1!A1:D10"`)
+</ParamField>
+
+<ParamField path="includeGridData" type="boolean">
+  Whether to include cell data in the response
+</ParamField>
+
+### Values
+
+Read and write cell values.
+
+<ParamField path="spreadsheetId" type="string" required>
+  The spreadsheet ID
+</ParamField>
+
+<ParamField path="range" type="string" required>
+  A1 notation range
+</ParamField>
+
+<ParamField path="valueInputOption" type="string">
+  How to interpret input: `RAW` or `USER_ENTERED`
+</ParamField>
+
+## Common Methods
+
+### Create Spreadsheet
+
+```bash
+gws sheets spreadsheets create --json '{
+  "properties": {
+    "title": "Q1 Budget 2026"
+  }
+}'
+```
+
+<ResponseField name="spreadsheetId" type="string">
+  The ID of the created spreadsheet
+</ResponseField>
+
+<ResponseField name="spreadsheetUrl" type="string">
+  The URL to open the spreadsheet in the browser
+</ResponseField>
+
+### Get Spreadsheet
+
+```bash
+gws sheets spreadsheets get --params '{
+  "spreadsheetId": "1a2b3c4d5e6f7g8h9i"
+}'
+```
+
+### Read Values
+
+```bash
+gws sheets spreadsheets values get --params '{
+  "spreadsheetId": "1a2b3c4d5e6f7g8h9i",
+  "range": "Sheet1!A1:D10"
+}'
+```
+
+<ResponseField name="range" type="string">
+  The range that was read
+</ResponseField>
+
+<ResponseField name="values" type="array">
+  2D array of cell values
+</ResponseField>
+
+### Write Values
+
+```bash
+gws sheets spreadsheets values update \
+  --params '{
+    "spreadsheetId": "1a2b3c4d5e6f7g8h9i",
+    "range": "Sheet1!A1",
+    "valueInputOption": "USER_ENTERED"
+  }' \
+  --json '{
+    "values": [
+      ["Name", "Email", "Status"],
+      ["Alice", "alice@example.com", "Active"],
+      ["Bob", "bob@example.com", "Pending"]
+    ]
+  }'
+```
+
+### Append Values
+
+```bash
+gws sheets spreadsheets values append \
+  --params '{
+    "spreadsheetId": "1a2b3c4d5e6f7g8h9i",
+    "range": "Sheet1!A1",
+    "valueInputOption": "USER_ENTERED"
+  }' \
+  --json '{
+    "values": [["New Row", "data1", "data2"]]
+  }'
+```
+
+### Batch Update
+
+```bash
+gws sheets spreadsheets batchUpdate \
+  --params '{"spreadsheetId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [
+      {
+        "addSheet": {
+          "properties": {"title": "New Sheet"}
+        }
+      },
+      {
+        "updateSheetProperties": {
+          "properties": {
+            "sheetId": 0,
+            "title": "Renamed Sheet"
+          },
+          "fields": "title"
+        }
+      }
+    ]
+  }'
+```
+
+## Value Examples
+
+<CodeGroup>
+```bash Read single cell
+gws sheets spreadsheets values get --params '{
+  "spreadsheetId": "1a2b3c4d5e6f7g8h9i",
+  "range": "Sheet1!A1"
+}'
+```
+
+```bash Read multiple ranges
+gws sheets spreadsheets values batchGet --params '{
+  "spreadsheetId": "1a2b3c4d5e6f7g8h9i",
+  "ranges": ["Sheet1!A1:B10", "Sheet2!C1:D5"]
+}'
+```
+
+```bash Clear range
+gws sheets spreadsheets values clear --params '{
+  "spreadsheetId": "1a2b3c4d5e6f7g8h9i",
+  "range": "Sheet1!A1:Z100"
+}'
+```
+</CodeGroup>
+
+## Response Format
+
+Read values response:
+
+```json
+{
+  "range": "Sheet1!A1:D3",
+  "majorDimension": "ROWS",
+  "values": [
+    ["Name", "Email", "Department", "Status"],
+    ["Alice", "alice@example.com", "Engineering", "Active"],
+    ["Bob", "bob@example.com", "Sales", "Active"]
+  ]
+}
+```
+
+Create spreadsheet response:
+
+```json
+{
+  "spreadsheetId": "1a2b3c4d5e6f7g8h9i",
+  "spreadsheetUrl": "https://docs.google.com/spreadsheets/d/1a2b3c4d5e6f7g8h9i/edit",
+  "properties": {
+    "title": "Q1 Budget 2026",
+    "locale": "en_US",
+    "timeZone": "America/Los_Angeles"
+  }
+}
+```
+
+## Related Helper Commands
+
+- `+append` - Append a row to a spreadsheet
+- `+read` - Read values from a spreadsheet
+
+## Key Resources
+
+- `spreadsheets` - Create and manage spreadsheets
+- `spreadsheets.values` - Read and write cell values
+- `spreadsheets.sheets` - Manage individual sheets
+- `spreadsheets.developerMetadata` - Store custom metadata
+
+## Common Operations
+
+### Formatting
+
+Use `batchUpdate` to format cells:
+
+```bash
+gws sheets spreadsheets batchUpdate \
+  --params '{"spreadsheetId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "repeatCell": {
+        "range": {"sheetId": 0, "startRowIndex": 0, "endRowIndex": 1},
+        "cell": {
+          "userEnteredFormat": {
+            "textFormat": {"bold": true}
+          }
+        },
+        "fields": "userEnteredFormat.textFormat.bold"
+      }
+    }]
+  }'
+```
+
+## Learn More
+
+- [Sheets API Guide](https://developers.google.com/sheets/api/guides/concepts)
+- [Reading and writing values](https://developers.google.com/sheets/api/guides/values)
+- [Formatting cells](https://developers.google.com/sheets/api/guides/formats)
+- [A1 notation](https://developers.google.com/sheets/api/guides/concepts#cell)
+
+## Schema Inspection
+
+Before calling any method, inspect its schema:
+
+```bash
+gws schema sheets.spreadsheets.create
+gws schema sheets.spreadsheets.values.update
+```

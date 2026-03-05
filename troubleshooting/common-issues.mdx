@@ -1,0 +1,386 @@
+---
+title: 'Common Issues'
+description: 'Solutions for frequently encountered problems with the Google Workspace CLI'
+---
+
+## Command Not Found
+
+### Error: `gws: command not found`
+
+**Cause**: The CLI is not installed or not in your `PATH`.
+
+<Accordion title="Solution for npm/npx installation">
+  If you installed via npm:
+  
+  ```bash
+  npm install -g @googleworkspace/cli
+  ```
+
+  **Verify installation**:
+  ```bash
+  which gws
+  gws --version
+  ```
+
+  **If `which gws` returns nothing**:
+  Your npm global bin directory is not in your PATH.
+
+  Find the npm bin path:
+  ```bash
+  npm bin -g
+  ```
+
+  Add it to your PATH in `~/.bashrc`, `~/.zshrc`, or equivalent:
+  ```bash
+  export PATH="$PATH:$(npm bin -g)"
+  ```
+
+  Reload your shell:
+  ```bash
+  source ~/.bashrc  # or ~/.zshrc
+  ```
+</Accordion>
+
+<Accordion title="Solution for Cargo installation">
+  If you installed via Cargo:
+  
+  ```bash
+  cargo install --path .
+  ```
+
+  Ensure `~/.cargo/bin` is in your PATH:
+  ```bash
+  export PATH="$HOME/.cargo/bin:$PATH"
+  ```
+
+  Add to your shell config (`~/.bashrc` or `~/.zshrc`) to make it permanent.
+</Accordion>
+
+## JSON Parsing Errors
+
+### Error: `Failed to parse JSON`
+
+**Cause**: Invalid JSON syntax in `--params` or `--json` arguments.
+
+<Accordion title="Common JSON mistakes">
+  **Problem**: Single quotes inside JSON strings
+  ```bash
+  # WRONG
+  gws drive files list --params "{"pageSize": 5}"
+  ```
+
+  **Solution**: Use single quotes for the shell, double quotes for JSON:
+  ```bash
+  # CORRECT
+  gws drive files list --params '{"pageSize": 5}'
+  ```
+
+  **Problem**: Trailing commas
+  ```bash
+  # WRONG
+  gws drive files list --params '{"pageSize": 5,}'
+  ```
+
+  **Solution**: Remove trailing commas:
+  ```bash
+  # CORRECT
+  gws drive files list --params '{"pageSize": 5}'
+  ```
+</Accordion>
+
+<Accordion title="Validate JSON before using">
+  Use `jq` to validate your JSON:
+  ```bash
+  echo '{"pageSize": 5}' | jq .
+  ```
+
+  If `jq` returns formatted JSON, it's valid.
+
+  **Build complex JSON with jq**:
+  ```bash
+  gws sheets spreadsheets create --json "$(jq -n '{
+    properties: {
+      title: "Q1 Budget"
+    }
+  }')"
+  ```
+</Accordion>
+
+### Error: `Missing required field`
+
+**Cause**: Your JSON is missing a required parameter for the API method.
+
+**Solution**: Use `gws schema` to inspect the method's required fields:
+
+```bash
+gws schema drive.files.create
+```
+
+This shows the request schema with required fields marked.
+
+## Rate Limiting
+
+### Error: `429 Too Many Requests`
+
+```json
+{
+  "error": {
+    "code": 429,
+    "message": "Quota exceeded for quota metric 'Queries' and limit 'Queries per day'"
+  }
+}
+```
+
+**Cause**: You've exceeded the API quota for your Google Cloud project.
+
+<Accordion title="Short-term solutions">
+  1. **Wait and retry**: Most quotas reset daily or per minute
+  2. **Use pagination delay**: Add `--page-delay` to slow down requests:
+     ```bash
+     gws drive files list --page-all --page-delay 1000  # 1 second between pages
+     ```
+  3. **Reduce page size**: Request fewer items per page:
+     ```bash
+     gws drive files list --params '{"pageSize": 10}'
+     ```
+</Accordion>
+
+<Accordion title="Long-term solutions">
+  **Request a quota increase**:
+  
+  1. Go to [Google Cloud Console > IAM & Admin > Quotas](https://console.cloud.google.com/iam-admin/quotas)
+  2. Filter by the API service (e.g., "Gmail API")
+  3. Select the quota metric you need to increase
+  4. Click **Edit Quotas** and submit a request
+
+  **Enable billing**: Some APIs have higher quotas for projects with billing enabled.
+</Accordion>
+
+## Network Errors
+
+### Error: `Connection timeout` or `DNS resolution failed`
+
+**Causes**:
+- No internet connection
+- Firewall blocking Google API domains
+- Proxy configuration needed
+
+<Accordion title="Solutions">
+  **Check connectivity**:
+  ```bash
+  curl https://www.googleapis.com
+  ```
+
+  **Configure proxy** (if behind corporate firewall):
+  ```bash
+  export HTTPS_PROXY=http://proxy.example.com:8080
+  export HTTP_PROXY=http://proxy.example.com:8080
+  ```
+
+  **Verify DNS**:
+  ```bash
+  nslookup www.googleapis.com
+  ```
+
+  If DNS fails, check your network settings or try a different DNS server (e.g., Google DNS: `8.8.8.8`).
+</Accordion>
+
+### Error: `SSL certificate problem`
+
+**Cause**: SSL/TLS certificate verification failed.
+
+**Solution**:
+1. Update your system's CA certificates:
+   ```bash
+   # Ubuntu/Debian
+   sudo apt-get update && sudo apt-get install ca-certificates
+   
+   # macOS
+   brew install ca-certificates
+   ```
+
+2. If behind a corporate proxy with SSL inspection, install your organization's root CA certificate.
+
+## Discovery Document Errors
+
+### Error: `Failed to fetch discovery document`
+
+**Cause**: Cannot retrieve the API specification from Google's Discovery Service.
+
+<Accordion title="Solutions">
+  **Check network connectivity** (see Network Errors above)
+
+  **Clear cache**: Discovery documents are cached for 24 hours:
+  ```bash
+  rm -rf ~/.cache/gws/
+  ```
+
+  **Verify the service name**:
+  ```bash
+  # List available services
+  gws --help
+  ```
+
+  **Check Google API status**: Visit [Google Workspace Status Dashboard](https://www.google.com/appsstatus/dashboard/) to verify the API is operational.
+</Accordion>
+
+## Pagination Issues
+
+### Error: `Page token invalid`
+
+**Cause**: Page tokens expire after a short period (typically 15-60 minutes).
+
+**Solution**: Restart pagination from the beginning. Don't save and reuse page tokens across sessions.
+
+### Issue: `--page-all` returns fewer results than expected
+
+**Cause**: The `--page-limit` default is 10 pages.
+
+**Solution**: Increase the page limit:
+```bash
+gws drive files list --page-all --page-limit 100
+```
+
+Or set to unlimited:
+```bash
+gws drive files list --page-all --page-limit 0
+```
+
+<Warning>
+  Unlimited pagination can consume significant quota and time for large result sets.
+</Warning>
+
+## File Upload Errors
+
+### Error: `File not found` or `Permission denied`
+
+**Cause**: The file path is incorrect or not readable.
+
+**Solution**:
+```bash
+# Use absolute paths
+gws drive files create --json '{"name": "report.pdf"}' --upload /full/path/to/report.pdf
+
+# Or verify relative path from current directory
+ls -l ./report.pdf
+gws drive files create --json '{"name": "report.pdf"}' --upload ./report.pdf
+```
+
+### Error: `Invalid multipart request`
+
+**Cause**: The API method doesn't support file uploads, or the request body is malformed.
+
+**Solution**: Ensure you're using an upload-capable method:
+```bash
+# Correct methods for uploads
+gws drive files create --upload ./file.pdf --json '{"name": "file.pdf"}'
+gws drive files update --params '{"fileId": "abc123"}' --upload ./updated.pdf
+```
+
+## Platform-Specific Issues
+
+<Accordion title="Windows: PowerShell JSON escaping">
+  PowerShell treats JSON quotes differently:
+
+  **Use backticks to escape inner quotes**:
+  ```powershell
+  gws drive files list --params '{`"pageSize`": 5}'
+  ```
+
+  **Or use a here-string**:
+  ```powershell
+  $params = @'
+  {"pageSize": 5}
+  '@
+  gws drive files list --params $params
+  ```
+</Accordion>
+
+<Accordion title="macOS: Keychain access denied">
+  **Error**: `Failed to access keychain`
+
+  **Cause**: The CLI cannot access the macOS Keychain to store/retrieve encrypted credentials.
+
+  **Solution**:
+  1. Open **Keychain Access** app
+  2. Search for "gws"
+  3. Delete any existing gws entries
+  4. Run `gws auth login` again and approve keychain access when prompted
+</Accordion>
+
+<Accordion title="Linux: libsecret not installed">
+  **Error**: `Secret service not available`
+
+  **Cause**: The Linux Secret Service backend is missing.
+
+  **Solution**: Install the required package:
+  ```bash
+  # Ubuntu/Debian
+  sudo apt-get install gnome-keyring
+  
+  # Fedora/RHEL
+  sudo dnf install gnome-keyring
+  
+  # Arch
+  sudo pacman -S gnome-keyring
+  ```
+</Accordion>
+
+## Getting Help
+
+If you're still experiencing issues:
+
+### Built-in Help
+
+```bash
+# General help
+gws --help
+
+# Service-specific help
+gws drive --help
+
+# Method-specific help
+gws drive files list --help
+
+# Inspect API schemas
+gws schema drive.files.list
+```
+
+### Report Issues on GitHub
+
+File a bug report at [github.com/googleworkspace/cli/issues](https://github.com/googleworkspace/cli/issues).
+
+**Include**:
+- CLI version: `gws --version`
+- Operating system and version
+- Exact command you ran
+- Full error output (redact sensitive information)
+- Steps to reproduce
+
+### Dry Run for Debugging
+
+Preview the request without executing:
+```bash
+gws drive files list --params '{"pageSize": 5}' --dry-run
+```
+
+This shows:
+- HTTP method and URL
+- Request headers
+- Request body
+- Authentication status
+
+Share this output when reporting issues (remove any auth tokens).
+
+### Community Support
+
+Check existing GitHub issues for similar problems:
+- [Search issues](https://github.com/googleworkspace/cli/issues)
+- [View discussions](https://github.com/googleworkspace/cli/discussions)
+
+## Additional Resources
+
+- [Authentication Guide](/authentication) - Detailed auth setup
+- [API Not Enabled Errors](/troubleshooting/api-not-enabled) - Fix `accessNotConfigured` errors
+- [Authentication Errors](/troubleshooting/auth-errors) - OAuth and credential issues
+- [Google Workspace Status Dashboard](https://www.google.com/appsstatus/dashboard/) - API availability

@@ -1,0 +1,238 @@
+---
+title: "Calendar API"
+description: "Manage calendars and events"
+---
+
+## Overview
+
+The Google Calendar API lets you manage calendars, create and modify events, and query for free/busy information.
+
+**API Name:** `calendar`  
+**Version:** `v3`  
+**Official Documentation:** [Calendar API Reference](https://developers.google.com/calendar/api/v3/reference)
+
+## Common Resources
+
+### Events
+
+Create, update, and manage calendar events.
+
+<ParamField path="calendarId" type="string" required>
+  Calendar identifier or `primary` for the user's primary calendar
+</ParamField>
+
+<ParamField path="eventId" type="string">
+  The event ID
+</ParamField>
+
+<ParamField path="timeMin" type="string">
+  Start time for event query (RFC3339 timestamp)
+</ParamField>
+
+<ParamField path="timeMax" type="string">
+  End time for event query (RFC3339 timestamp)
+</ParamField>
+
+<ParamField path="maxResults" type="integer">
+  Maximum number of events to return (default: 250, max: 2500)
+</ParamField>
+
+### Calendars
+
+Manage calendar metadata.
+
+<ParamField path="calendarId" type="string" required>
+  Calendar identifier
+</ParamField>
+
+<ParamField path="summary" type="string">
+  The calendar title
+</ParamField>
+
+## Common Methods
+
+### List Events
+
+```bash
+gws calendar events list --params '{
+  "calendarId": "primary",
+  "timeMin": "2026-03-05T00:00:00Z",
+  "maxResults": 10
+}'
+```
+
+<ResponseField name="items" type="array">
+  Array of event objects
+  
+  <ResponseField name="id" type="string">
+    The event ID
+  </ResponseField>
+  
+  <ResponseField name="summary" type="string">
+    The event title
+  </ResponseField>
+  
+  <ResponseField name="start" type="object">
+    The start time
+    
+    <ResponseField name="dateTime" type="string">
+      Start time (RFC3339)
+    </ResponseField>
+  </ResponseField>
+  
+  <ResponseField name="end" type="object">
+    The end time
+  </ResponseField>
+</ResponseField>
+
+### Create Event
+
+```bash
+gws calendar events insert \
+  --params '{"calendarId": "primary"}' \
+  --json '{
+    "summary": "Team Meeting",
+    "start": {"dateTime": "2026-03-10T14:00:00-08:00"},
+    "end": {"dateTime": "2026-03-10T15:00:00-08:00"},
+    "attendees": [
+      {"email": "colleague@example.com"}
+    ]
+  }'
+```
+
+### Get Event
+
+```bash
+gws calendar events get --params '{
+  "calendarId": "primary",
+  "eventId": "abc123def456"
+}'
+```
+
+### Update Event
+
+```bash
+gws calendar events patch \
+  --params '{"calendarId": "primary", "eventId": "abc123def456"}' \
+  --json '{"summary": "Updated Meeting Title"}'
+```
+
+### Delete Event
+
+```bash
+gws calendar events delete --params '{
+  "calendarId": "primary",
+  "eventId": "abc123def456"
+}'
+```
+
+### Quick Add Event
+
+```bash
+gws calendar events quickAdd --params '{
+  "calendarId": "primary",
+  "text": "Lunch with Sarah tomorrow at noon"
+}'
+```
+
+### Query Free/Busy
+
+```bash
+gws calendar freebusy query --json '{
+  "timeMin": "2026-03-10T00:00:00Z",
+  "timeMax": "2026-03-10T23:59:59Z",
+  "items": [{"id": "primary"}]
+}'
+```
+
+## Event Examples
+
+<CodeGroup>
+```bash All-day event
+gws calendar events insert \
+  --params '{"calendarId": "primary"}' \
+  --json '{
+    "summary": "Vacation Day",
+    "start": {"date": "2026-03-15"},
+    "end": {"date": "2026-03-16"}
+  }'
+```
+
+```bash Recurring event
+gws calendar events insert \
+  --params '{"calendarId": "primary"}' \
+  --json '{
+    "summary": "Weekly Standup",
+    "start": {"dateTime": "2026-03-10T09:00:00-08:00"},
+    "end": {"dateTime": "2026-03-10T09:30:00-08:00"},
+    "recurrence": ["RRULE:FREQ=WEEKLY;BYDAY=MO,WE,FR"]
+  }'
+```
+
+```bash Event with conferencing
+gws calendar events insert \
+  --params '{"calendarId": "primary", "conferenceDataVersion": 1}' \
+  --json '{
+    "summary": "Video Call",
+    "start": {"dateTime": "2026-03-10T14:00:00-08:00"},
+    "end": {"dateTime": "2026-03-10T15:00:00-08:00"},
+    "conferenceData": {
+      "createRequest": {"requestId": "random-string-123"}
+    }
+  }'
+```
+</CodeGroup>
+
+## Response Format
+
+```json
+{
+  "kind": "calendar#events",
+  "items": [
+    {
+      "id": "abc123def456",
+      "summary": "Team Meeting",
+      "start": {
+        "dateTime": "2026-03-10T14:00:00-08:00",
+        "timeZone": "America/Los_Angeles"
+      },
+      "end": {
+        "dateTime": "2026-03-10T15:00:00-08:00",
+        "timeZone": "America/Los_Angeles"
+      },
+      "attendees": [
+        {"email": "colleague@example.com", "responseStatus": "needsAction"}
+      ]
+    }
+  ]
+}
+```
+
+## Related Helper Commands
+
+- `+insert` - Create a new event
+- `+agenda` - Show upcoming events across all calendars
+
+## Key Resources
+
+- `events` - Create, read, update, delete events
+- `calendars` - Manage calendar metadata
+- `calendarList` - Manage user's calendar list
+- `acl` - Manage calendar access control
+- `freebusy` - Query free/busy information
+
+## Learn More
+
+- [Calendar API Guide](https://developers.google.com/calendar/api/guides/overview)
+- [Creating events](https://developers.google.com/calendar/api/guides/create-events)
+- [Recurring events](https://developers.google.com/calendar/api/guides/recurringevents)
+- [Push notifications](https://developers.google.com/calendar/api/guides/push)
+
+## Schema Inspection
+
+Before calling any method, inspect its schema:
+
+```bash
+gws schema calendar.events.list
+gws schema calendar.events.insert
+```

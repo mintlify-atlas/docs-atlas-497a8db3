@@ -1,0 +1,139 @@
+---
+title: 'sheets +append'
+description: 'Append rows to a Google Sheets spreadsheet'
+---
+
+## Overview
+
+The `gws sheets +append` helper command simplifies adding data to Google Sheets by wrapping the `spreadsheets.values.append` API method with convenient input formats.
+
+## Command Syntax
+
+```bash
+gws sheets +append --spreadsheet ID [--values CSV] [--json-values JSON]
+```
+
+## Parameters
+
+<ParamField path="spreadsheet" type="string" required>
+  The spreadsheet ID (found in the spreadsheet URL)
+</ParamField>
+
+<ParamField path="values" type="string">
+  Comma-separated values for a single row. Cannot be used with `--json-values`
+</ParamField>
+
+<ParamField path="json-values" type="string">
+  JSON array of rows, e.g., `[["a","b"],["c","d"]]`. Cannot be used with `--values`
+</ParamField>
+
+## Examples
+
+### Single row with simple values
+
+Append a single row with comma-separated values:
+
+```bash
+gws sheets +append --spreadsheet 1a2b3c4d5e6f --values 'Alice,100,true'
+```
+
+This appends: `["Alice", "100", "true"]` to the next available row.
+
+### Multiple rows with JSON
+
+Append multiple rows using JSON format:
+
+```bash
+gws sheets +append --spreadsheet 1a2b3c4d5e6f --json-values '[["Alice","100","true"],["Bob","200","false"]]'
+```
+
+### Using shell variables
+
+```bash
+SHEET_ID="1a2b3c4d5e6f7g8h9i0j"
+NAME="Charlie"
+SCORE="150"
+ACTIVE="true"
+
+gws sheets +append --spreadsheet "$SHEET_ID" --values "$NAME,$SCORE,$ACTIVE"
+```
+
+### Bulk insert from file
+
+```bash
+# data.json contains: [["row1col1","row1col2"],["row2col1","row2col2"]]
+gws sheets +append --spreadsheet 1a2b3c4d --json-values "$(cat data.json)"
+```
+
+## Output Format
+
+Returns details about the append operation:
+
+```json
+{
+  "spreadsheetId": "1a2b3c4d5e6f7g8h9i0j",
+  "tableRange": "Sheet1!A1:C1",
+  "updates": {
+    "spreadsheetId": "1a2b3c4d5e6f7g8h9i0j",
+    "updatedRange": "Sheet1!A2:C2",
+    "updatedRows": 1,
+    "updatedColumns": 3,
+    "updatedCells": 3
+  }
+}
+```
+
+## How It Works
+
+1. **Range Selection**: Automatically targets range `A1` with `valueInputOption=USER_ENTERED`
+2. **Value Parsing**: 
+   - `--values`: Splits on commas to create a single row array
+   - `--json-values`: Parses JSON to support single or multiple rows
+3. **API Call**: Executes `spreadsheets.values.append` which finds the next empty row
+4. **Data Interpretation**: `USER_ENTERED` means Sheets interprets values (formulas, dates, numbers)
+
+## Value Input Modes
+
+The command uses `valueInputOption=USER_ENTERED`, which means:
+
+- Numbers are parsed as numbers (not strings)
+- `=SUM(A1:A10)` is interpreted as a formula
+- `3/14/2026` is parsed as a date
+- `true`/`false` are parsed as booleans
+
+For literal strings only, use the raw API with `valueInputOption=RAW`.
+
+## Common Patterns
+
+### Log entries
+
+```bash
+TIMESTAMP=$(date -Iseconds)
+EVENT="user_login"
+USER_ID="12345"
+
+gws sheets +append \
+  --spreadsheet 1a2b3c4d \
+  --values "$TIMESTAMP,$EVENT,$USER_ID"
+```
+
+### CSV import
+
+```bash
+# Convert CSV to JSON array format
+csv_to_json() {
+  python3 -c "import csv,json,sys; print(json.dumps(list(csv.reader(sys.stdin))))"
+}
+
+cat data.csv | csv_to_json | \
+  xargs -I {} gws sheets +append --spreadsheet 1a2b3c4d --json-values '{}'
+```
+
+## Related
+
+- [gws-sheets-append skill](/skills/gws-sheets-append) — AI agent integration
+- [sheets +read](/api/helpers/sheets-read) — Read values from spreadsheets
+- For advanced control (specific ranges, raw values), use:
+  ```bash
+  gws sheets spreadsheets values append --params '{...}' --json '{...}'
+  ```

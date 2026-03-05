@@ -1,0 +1,264 @@
+---
+title: Building from Source
+description: Build, compile, and develop the gws CLI locally
+---
+
+## Prerequisites
+
+- **Rust**: Install via [rustup](https://rustup.rs/)
+- **Node.js**: Version 18 or higher
+- **pnpm**: This project uses `pnpm` for Node.js package management
+
+<Note>
+  **Package Manager**: Use `pnpm` instead of `npm` for all Node.js operations in this repository.
+</Note>
+
+## Quick Start
+
+### Development Build
+
+Build the CLI in development mode:
+
+```bash
+cargo build
+```
+
+The binary will be available at `target/debug/gws`.
+
+### Run Without Installing
+
+You can run the CLI directly without installing:
+
+```bash
+cargo run -- drive files list --params '{"pageSize": 5}'
+```
+
+Everything after `--` is passed to the `gws` binary.
+
+### Install Locally
+
+Install from source to make `gws` available system-wide:
+
+```bash
+cargo install --path .
+```
+
+This installs the binary to `~/.cargo/bin/gws` (ensure `~/.cargo/bin` is in your `PATH`).
+
+## Linting
+
+Run Clippy with strict warnings:
+
+```bash
+cargo clippy -- -D warnings
+```
+
+This command treats all warnings as errors, matching the CI requirements.
+
+## Build Artifacts
+
+### Debug Builds
+
+Development builds are unoptimized for faster compilation:
+
+```bash
+cargo build
+```
+
+- Output: `target/debug/gws`
+- Includes debug symbols
+- No optimizations applied
+- Fast compilation time
+
+### Release Builds
+
+Production builds are optimized for performance:
+
+```bash
+cargo build --release
+```
+
+- Output: `target/release/gws`
+- Full optimizations enabled
+- Stripped debug symbols
+- Slower compilation, faster runtime
+
+### Distribution Builds
+
+The project includes a custom profile for `cargo-dist`:
+
+```bash
+cargo build --profile dist
+```
+
+- Inherits from `release` profile
+- Applies thin LTO (Link-Time Optimization)
+- Used for npm package distribution
+
+## Project Structure
+
+### Rust Workspace
+
+The project is configured in `Cargo.toml`:
+
+```toml
+[package]
+name = "gws"
+version = "0.3.3"
+edition = "2021"
+
+[[bin]]
+name = "gws"
+path = "src/main.rs"
+```
+
+### npm Package
+
+The npm package wraps the Rust binary and is configured in `package.json`:
+
+```json
+{
+  "name": "@googleworkspace/cli",
+  "version": "0.3.3",
+  "packageManager": "pnpm@10.0.0"
+}
+```
+
+## Local Development Setup
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/googleworkspace/cli.git
+cd cli
+```
+
+### 2. Install Dependencies
+
+```bash
+pnpm install
+```
+
+This installs:
+- `@changesets/cli` for version management
+- `lefthook` for git hooks
+
+### 3. Build the CLI
+
+```bash
+cargo build
+```
+
+### 4. Authenticate
+
+Set up authentication for testing:
+
+```bash
+cargo run -- auth setup
+```
+
+Or authenticate manually:
+
+```bash
+cargo run -- auth login
+```
+
+### 5. Test a Command
+
+```bash
+cargo run -- drive files list --params '{"pageSize": 5}'
+```
+
+## Development Workflow
+
+### Make Changes
+
+1. Edit source files in `src/`
+2. Run `cargo build` to compile
+3. Test changes with `cargo run -- <command>`
+
+### Check for Errors
+
+```bash
+# Compile check
+cargo check
+
+# Run linter
+cargo clippy -- -D warnings
+
+# Run tests
+cargo test
+```
+
+### Format Code
+
+```bash
+cargo fmt
+```
+
+## Working with Dependencies
+
+### Add a Dependency
+
+```bash
+cargo add <crate-name>
+```
+
+### Update Dependencies
+
+```bash
+cargo update
+```
+
+### Check for Outdated Crates
+
+```bash
+cargo outdated
+```
+
+## Troubleshooting
+
+### Build Fails with Missing Dependencies
+
+Ensure you have the latest Rust toolchain:
+
+```bash
+rustup update
+```
+
+### Linker Errors on macOS
+
+Install Xcode Command Line Tools:
+
+```bash
+xcode-select --install
+```
+
+### Linker Errors on Linux
+
+Install build essentials:
+
+```bash
+# Debian/Ubuntu
+sudo apt-get install build-essential pkg-config libssl-dev
+
+# Fedora/RHEL
+sudo dnf install gcc pkg-config openssl-devel
+```
+
+## Environment Variables
+
+During development, you can use a `.env` file for configuration:
+
+```bash
+# .env
+GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=./dev-credentials.json
+```
+
+The CLI loads `.env` files automatically via `dotenvy`.
+
+## Next Steps
+
+- Learn how to write and run tests: [Testing](/development/testing)
+- Understand contribution requirements: [Contributing](/development/contributing)
+- Explore the architecture: [Architecture](/development/architecture)

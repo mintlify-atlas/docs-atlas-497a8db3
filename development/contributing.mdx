@@ -1,0 +1,357 @@
+---
+title: Contributing
+description: Guidelines for contributing to the gws CLI project
+---
+
+## Before You Begin
+
+### Contributor License Agreement
+
+Contributions to this project must be accompanied by a [Contributor License Agreement](https://cla.developers.google.com/about) (CLA). You (or your employer) retain the copyright to your contribution; this simply gives us permission to use and redistribute your contributions as part of the project.
+
+If you or your current employer have already signed the Google CLA (even if it was for a different project), you probably don't need to do it again.
+
+Visit [cla.developers.google.com](https://cla.developers.google.com/) to see your current agreements or to sign a new one.
+
+### Community Guidelines
+
+This project follows [Google's Open Source Community Guidelines](https://opensource.google/conduct/).
+
+## Changesets (Required)
+
+<Warning>
+  **Every PR must include a changeset file.** The CI policy check will fail without one.
+</Warning>
+
+### Creating a Changeset
+
+Create a file at `.changeset/<descriptive-name>.md`:
+
+```markdown
+---
+"@googleworkspace/cli": patch
+---
+
+Brief description of the change
+```
+
+### Choosing the Change Type
+
+| Type | When to Use | Examples |
+|------|-------------|----------|
+| `patch` | Fixes, chores, documentation | Bug fixes, dependency updates, typo fixes |
+| `minor` | New features, non-breaking additions | New commands, new flags, new APIs |
+| `major` | Breaking changes | Removed commands, changed output format, incompatible API changes |
+
+### Example Changesets
+
+**Patch (bug fix)**:
+```markdown
+---
+"@googleworkspace/cli": patch
+---
+
+Fix URL encoding for file IDs containing special characters
+```
+
+**Minor (new feature)**:
+```markdown
+---
+"@googleworkspace/cli": minor
+---
+
+Add support for Gmail message sanitization with Model Armor
+```
+
+**Major (breaking change)**:
+```markdown
+---
+"@googleworkspace/cli": major
+---
+
+Change default pagination limit from 10 to 1 page
+```
+
+## Code Style Guidelines
+
+### Formatting
+
+Use `rustfmt` for consistent formatting:
+
+```bash
+cargo fmt
+```
+
+The CI pipeline checks formatting automatically.
+
+### Linting
+
+Run Clippy with strict warnings:
+
+```bash
+cargo clippy -- -D warnings
+```
+
+Fix all warnings before submitting a PR.
+
+### Naming Conventions
+
+- **Functions**: `snake_case`
+- **Types/Structs**: `PascalCase`
+- **Constants**: `SCREAMING_SNAKE_CASE`
+- **Modules**: `snake_case`
+
+## Input Validation & URL Safety
+
+<Warning>
+  This CLI is designed to be invoked by AI/LLM agents, so all user-supplied inputs must be treated as potentially adversarial.
+</Warning>
+
+### Validation Checklist
+
+When adding a new feature or CLI command:
+
+| Scenario | What to Use |
+|----------|-------------|
+| File path for writing (`--output-dir`) | `validate::validate_safe_output_dir()` |
+| File path for reading (`--dir`) | `validate::validate_safe_dir_path()` |
+| URL path segment (file ID, resource ID) | `helpers::encode_path_segment()` |
+| Query parameters | reqwest `.query()` builder |
+| Resource names (`--project`, `--space`) | `helpers::validate_resource_name()` |
+| Enum flags (`--msg-format`) | clap `value_parser` |
+
+### Path Safety Example
+
+```rust
+use crate::validate::validate_safe_output_dir;
+
+if let Some(output_dir) = matches.get_one::<String>("output-dir") {
+    validate_safe_output_dir(output_dir)?;
+    builder.output_dir(Some(output_dir.clone()));
+}
+```
+
+### URL Encoding Example
+
+```rust
+use crate::helpers::encode_path_segment;
+
+// CORRECT — encodes slashes, spaces, and special characters
+let url = format!(
+    "https://www.googleapis.com/drive/v3/files/{}",
+    encode_path_segment(file_id),
+);
+
+// WRONG — raw user input in URL path
+let url = format!("https://www.googleapis.com/drive/v3/files/{}", file_id);
+```
+
+### Query Parameter Example
+
+```rust
+// CORRECT — reqwest encodes query values
+client.get(url).query(&[("q", user_query)]).send().await?;
+
+// WRONG — manual string interpolation
+let url = format!("{}?q={}", base_url, user_query);
+```
+
+### Resource Name Example
+
+```rust
+use crate::helpers::validate_resource_name;
+
+let project = validate_resource_name(&project_id)?;
+let url = format!(
+    "https://pubsub.googleapis.com/v1/projects/{}/topics/my-topic",
+    project
+);
+```
+
+## Testing Requirements
+
+<Warning>
+  All validation logic must include **both happy-path and error-path tests**.
+</Warning>
+
+### Test Coverage
+
+- Run `cargo test` locally before submitting
+- Verify new branches are exercised
+- Use `./scripts/coverage.sh` to generate a coverage report
+- The `codecov/patch` check requires new or modified lines to be tested
+
+### Writing Tests
+
+Extract testable helper functions:
+
+```rust
+// GOOD — testable helper function
+pub fn validate_file_id(id: &str) -> Result<(), ValidationError> {
+    if id.contains("..") {
+        return Err(ValidationError::PathTraversal);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_validate_file_id_rejects_traversal() {
+        assert!(validate_file_id("../../secret").is_err());
+    }
+
+    #[test]
+    fn test_validate_file_id_allows_valid() {
+        assert!(validate_file_id("abc123").is_ok());
+    }
+}
+```
+
+```rust
+// BAD — logic embedded in main/run (hard to test)
+fn run() -> Result<()> {
+    let file_id = get_file_id();
+    if file_id.contains("..") {
+        return Err(...);
+    }
+    // ...
+}
+```
+
+### Serial Tests
+
+Tests that modify the process CWD must use `#[serial]` from `serial_test`:
+
+```rust
+use serial_test::serial;
+
+#[test]
+#[serial]
+fn test_changes_cwd() {
+    std::env::set_current_dir("/tmp").unwrap();
+    // ...
+}
+```
+
+### Tempdir Paths
+
+Canonicalize tempdir paths to handle macOS `/var` → `/private/var` symlinks:
+
+```rust
+use tempfile::TempDir;
+
+#[test]
+fn test_with_tempdir() {
+    let temp_dir = TempDir::new().unwrap();
+    let canonical_path = temp_dir.path().canonicalize().unwrap();
+    // Use canonical_path in tests...
+}
+```
+
+## Pull Request Workflow
+
+### 1. Fork and Clone
+
+```bash
+git clone https://github.com/YOUR_USERNAME/cli.git
+cd cli
+```
+
+### 2. Create a Branch
+
+```bash
+git checkout -b feature/my-new-feature
+```
+
+### 3. Make Changes
+
+- Write code following the style guidelines
+- Add tests for new functionality
+- Update documentation if needed
+
+### 4. Create a Changeset
+
+```bash
+# Create .changeset/my-feature.md
+cat > .changeset/my-feature.md << 'EOF'
+---
+"@googleworkspace/cli": minor
+---
+
+Add support for my new feature
+EOF
+```
+
+### 5. Run Checks Locally
+
+```bash
+cargo fmt
+cargo clippy -- -D warnings
+cargo test
+./scripts/coverage.sh
+```
+
+### 6. Commit and Push
+
+```bash
+git add .
+git commit -m "Add my new feature"
+git push origin feature/my-new-feature
+```
+
+### 7. Create Pull Request
+
+1. Go to [github.com/googleworkspace/cli](https://github.com/googleworkspace/cli)
+2. Click **New Pull Request**
+3. Select your branch
+4. Fill out the PR template
+5. Submit for review
+
+## Code Review Process
+
+All submissions, including submissions by project members, require review:
+
+1. A maintainer will review your PR
+2. Address any requested changes
+3. Once approved, a maintainer will merge your PR
+4. Your changes will be included in the next release
+
+Consult [GitHub Help](https://help.github.com/articles/about-pull-requests/) for more information on using pull requests.
+
+## Package Manager Note
+
+<Note>
+  **Important**: Use `pnpm` instead of `npm` for Node.js package management in this repository.
+</Note>
+
+The project is configured with:
+
+```json
+{
+  "packageManager": "pnpm@10.0.0"
+}
+```
+
+Install dependencies with:
+
+```bash
+pnpm install
+```
+
+## Additional Resources
+
+- [Architecture Documentation](/development/architecture)
+- [Building from Source](/development/building)
+- [Testing Guidelines](/development/testing)
+- [GitHub Repository](https://github.com/googleworkspace/cli)
+- [Issue Tracker](https://github.com/googleworkspace/cli/issues)
+
+## Getting Help
+
+If you have questions or need help:
+
+1. Check the [documentation](https://googleworkspace.github.io/cli)
+2. Search [existing issues](https://github.com/googleworkspace/cli/issues)
+3. Open a [new issue](https://github.com/googleworkspace/cli/issues/new)
+4. Join discussions in pull requests

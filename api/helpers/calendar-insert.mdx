@@ -1,0 +1,193 @@
+---
+title: 'calendar +insert'
+description: 'Create a new Google Calendar event'
+---
+
+## Overview
+
+The `gws calendar +insert` helper command simplifies creating calendar events by providing a streamlined interface to the Calendar API's `events.insert` method.
+
+## Command Syntax
+
+```bash
+gws calendar +insert --summary TEXT --start TIME --end TIME [OPTIONS]
+```
+
+## Parameters
+
+<ParamField path="summary" type="string" required>
+  Event title/summary
+</ParamField>
+
+<ParamField path="start" type="string" required>
+  Start time in ISO 8601 format (RFC3339), e.g., `2026-03-15T10:00:00-07:00`
+</ParamField>
+
+<ParamField path="end" type="string" required>
+  End time in ISO 8601 format (RFC3339), e.g., `2026-03-15T11:00:00-07:00`
+</ParamField>
+
+<ParamField path="calendar" type="string" default="primary">
+  Calendar ID to create the event in. Defaults to the user's primary calendar
+</ParamField>
+
+<ParamField path="location" type="string">
+  Event location (e.g., "Room 101" or "https://meet.google.com/abc-def-ghi")
+</ParamField>
+
+<ParamField path="description" type="string">
+  Event description/body text
+</ParamField>
+
+<ParamField path="attendee" type="string" repeatable>
+  Attendee email address. Can be specified multiple times to invite multiple people
+</ParamField>
+
+## Examples
+
+### Basic event
+
+Create a 30-minute event:
+
+```bash
+gws calendar +insert \
+  --summary 'Team Standup' \
+  --start '2026-03-15T09:00:00-07:00' \
+  --end '2026-03-15T09:30:00-07:00'
+```
+
+### Event with location and description
+
+```bash
+gws calendar +insert \
+  --summary 'Product Review' \
+  --start '2026-03-15T14:00:00-07:00' \
+  --end '2026-03-15T15:00:00-07:00' \
+  --location 'Conference Room A' \
+  --description 'Quarterly product roadmap review and planning session'
+```
+
+### Event with attendees
+
+Invite multiple attendees:
+
+```bash
+gws calendar +insert \
+  --summary 'Sprint Planning' \
+  --start '2026-03-16T10:00:00-07:00' \
+  --end '2026-03-16T12:00:00-07:00' \
+  --attendee alice@example.com \
+  --attendee bob@example.com \
+  --attendee charlie@example.com
+```
+
+### Event in specific calendar
+
+```bash
+gws calendar +insert \
+  --calendar 'team-calendar@example.com' \
+  --summary 'Office Closure' \
+  --start '2026-07-04T00:00:00-07:00' \
+  --end '2026-07-04T23:59:59-07:00'
+```
+
+### All-day event
+
+For all-day events, use midnight times:
+
+```bash
+gws calendar +insert \
+  --summary 'Company Offsite' \
+  --start '2026-03-20T00:00:00-07:00' \
+  --end '2026-03-21T00:00:00-07:00'
+```
+
+## Output Format
+
+Returns the created event details:
+
+```json
+{
+  "id": "abc123def456ghi789",
+  "summary": "Team Standup",
+  "start": {
+    "dateTime": "2026-03-15T09:00:00-07:00",
+    "timeZone": "America/Los_Angeles"
+  },
+  "end": {
+    "dateTime": "2026-03-15T09:30:00-07:00",
+    "timeZone": "America/Los_Angeles"
+  },
+  "creator": {
+    "email": "user@example.com"
+  },
+  "organizer": {
+    "email": "user@example.com"
+  },
+  "status": "confirmed",
+  "htmlLink": "https://calendar.google.com/calendar/event?eid=..."
+}
+```
+
+## Time Format
+
+Use **RFC3339** format for times:
+
+- With timezone offset: `2026-03-15T09:00:00-07:00` (Pacific)
+- UTC: `2026-03-15T16:00:00Z`
+- With timezone name: `2026-03-15T09:00:00-07:00`
+
+### Getting the current time in correct format
+
+```bash
+# Current time
+date -Iseconds
+# Output: 2026-03-15T09:00:00-07:00
+
+# 1 hour from now
+date -d '+1 hour' -Iseconds
+```
+
+## How It Works
+
+1. **Event Body Construction**: Builds a JSON object with:
+   - `summary`: Event title
+   - `start`: `{"dateTime": "..."}`
+   - `end`: `{"dateTime": "..."}`
+   - Optional: `location`, `description`, `attendees` array
+
+2. **API Call**: Executes `calendar.events.insert` with:
+   - Path parameter: `calendarId` (defaults to "primary")
+   - Request body: Event object
+
+3. **Authentication**: Uses OAuth2 with `calendar` scope
+
+## Limitations
+
+This helper is optimized for simple event creation. For advanced features, use the raw Calendar API:
+
+- **Recurring events**: Use `recurrence` field with RRULE
+- **Google Meet links**: Use `conferenceData` with `createRequest`
+- **Reminders**: Use `reminders` field
+- **Color coding**: Use `colorId` field
+- **Visibility**: Use `visibility` field (public/private)
+
+### Example with raw API
+
+```bash
+gws calendar events insert --params '{"calendarId":"primary"}' --json '{
+  "summary": "Weekly Sync",
+  "start": {"dateTime": "2026-03-15T10:00:00-07:00"},
+  "end": {"dateTime": "2026-03-15T11:00:00-07:00"},
+  "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"],
+  "conferenceData": {
+    "createRequest": {"requestId": "random-string"}
+  }
+}'
+```
+
+## Related
+
+- [gws-calendar-insert skill](/skills/gws-calendar-insert) — AI agent integration
+- [calendar +agenda](/api/helpers/calendar-agenda) — View upcoming events
+- [Calendar API documentation](https://developers.google.com/calendar/api/v3/reference/events/insert)

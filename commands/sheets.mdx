@@ -1,0 +1,284 @@
+---
+title: "Sheets Commands"
+description: "Read and write spreadsheets with Google Sheets API"
+---
+
+## Overview
+
+The Sheets service provides access to Google Sheets v4 API for reading and writing spreadsheet data, managing sheets, and applying formatting.
+
+**API**: `sheets` (v4)
+
+## Common Use Cases
+
+- Read and write cell data
+- Create and manage spreadsheets
+- Append rows to sheets
+- Format cells and ranges
+- Create charts and pivot tables
+
+## Helper Commands
+
+### `+append`
+
+Append rows to a spreadsheet:
+
+```bash Simple values
+gws sheets +append --spreadsheet SPREADSHEET_ID --values 'Alice,100,true'
+```
+
+```bash Multiple rows (JSON)
+gws sheets +append --spreadsheet SPREADSHEET_ID --json-values '[["Alice",100],["Bob",200]]'
+```
+
+### `+read`
+
+Read values from a range:
+
+```bash
+gws sheets +read --spreadsheet SPREADSHEET_ID --range 'Sheet1!A1:B10'
+```
+
+## Command Examples
+
+### Create a Spreadsheet
+
+```bash Empty spreadsheet
+gws sheets spreadsheets create --json '{"properties": {"title": "Q1 Budget"}}'
+```
+
+```bash With initial sheets
+gws sheets spreadsheets create --json '{
+  "properties": {"title": "Sales Report"},
+  "sheets": [
+    {"properties": {"title": "January"}},
+    {"properties": {"title": "February"}}
+  ]
+}'
+```
+
+<Accordion title="Example Response">
+```json
+{
+  "spreadsheetId": "1abc...",
+  "properties": {
+    "title": "Q1 Budget",
+    "locale": "en_US",
+    "timeZone": "America/Los_Angeles"
+  },
+  "sheets": [
+    {
+      "properties": {
+        "sheetId": 0,
+        "title": "Sheet1",
+        "index": 0,
+        "gridProperties": {"rowCount": 1000, "columnCount": 26}
+      }
+    }
+  ]
+}
+```
+</Accordion>
+
+### Read Values
+
+<CodeGroup>
+
+```bash Single range
+gws sheets spreadsheets values get --params '{"spreadsheetId": "SPREADSHEET_ID", "range": "Sheet1!A1:B10"}'
+```
+
+```bash Multiple ranges
+gws sheets spreadsheets values batchGet --params '{"spreadsheetId": "SPREADSHEET_ID", "ranges": ["Sheet1!A1:B10", "Sheet2!A1:C5"]}'
+```
+
+```bash Entire sheet
+gws sheets spreadsheets values get --params '{"spreadsheetId": "SPREADSHEET_ID", "range": "Sheet1"}'
+```
+
+</CodeGroup>
+
+<Accordion title="Example Response">
+```json
+{
+  "range": "Sheet1!A1:B10",
+  "majorDimension": "ROWS",
+  "values": [
+    ["Name", "Score"],
+    ["Alice", "95"],
+    ["Bob", "87"],
+    ["Charlie", "92"]
+  ]
+}
+```
+</Accordion>
+
+### Write Values
+
+```bash Update range
+gws sheets spreadsheets values update \
+  --params '{"spreadsheetId": "SPREADSHEET_ID", "range": "Sheet1!A1:B2", "valueInputOption": "RAW"}' \
+  --json '{"values": [["Name", "Score"], ["Alice", "95"]]}'
+```
+
+```bash Append rows
+gws sheets spreadsheets values append \
+  --params '{"spreadsheetId": "SPREADSHEET_ID", "range": "Sheet1!A1", "valueInputOption": "USER_ENTERED"}' \
+  --json '{"values": [["Bob", "87"], ["Charlie", "92"]]}'
+```
+
+### Clear Values
+
+```bash
+gws sheets spreadsheets values clear --params '{"spreadsheetId": "SPREADSHEET_ID", "range": "Sheet1!A1:B10"}'
+```
+
+### Batch Update
+
+```bash Multiple operations
+gws sheets spreadsheets batchUpdate --params '{"spreadsheetId": "SPREADSHEET_ID"}' --json '{
+  "requests": [
+    {
+      "updateCells": {
+        "range": {"sheetId": 0, "startRowIndex": 0, "endRowIndex": 1},
+        "rows": [{"values": [{"userEnteredValue": {"stringValue": "Header"}}]}],
+        "fields": "userEnteredValue"
+      }
+    },
+    {
+      "repeatCell": {
+        "range": {"sheetId": 0, "startRowIndex": 0, "endRowIndex": 1},
+        "cell": {"userEnteredFormat": {"textFormat": {"bold": true}}},
+        "fields": "userEnteredFormat.textFormat.bold"
+      }
+    }
+  ]
+}'
+```
+
+### Add Sheet
+
+```bash
+gws sheets spreadsheets batchUpdate --params '{"spreadsheetId": "SPREADSHEET_ID"}' --json '{
+  "requests": [
+    {
+      "addSheet": {
+        "properties": {
+          "title": "March",
+          "gridProperties": {"rowCount": 100, "columnCount": 10}
+        }
+      }
+    }
+  ]
+}'
+```
+
+### Delete Sheet
+
+```bash
+gws sheets spreadsheets batchUpdate --params '{"spreadsheetId": "SPREADSHEET_ID"}' --json '{
+  "requests": [{"deleteSheet": {"sheetId": SHEET_ID}}]
+}'
+```
+
+### Format Cells
+
+```bash Bold header row
+gws sheets spreadsheets batchUpdate --params '{"spreadsheetId": "SPREADSHEET_ID"}' --json '{
+  "requests": [{
+    "repeatCell": {
+      "range": {"sheetId": 0, "startRowIndex": 0, "endRowIndex": 1},
+      "cell": {"userEnteredFormat": {"textFormat": {"bold": true}}},
+      "fields": "userEnteredFormat.textFormat.bold"
+    }
+  }]
+}'
+```
+
+```bash Set column width
+gws sheets spreadsheets batchUpdate --params '{"spreadsheetId": "SPREADSHEET_ID"}' --json '{
+  "requests": [{
+    "updateDimensionProperties": {
+      "range": {"sheetId": 0, "dimension": "COLUMNS", "startIndex": 0, "endIndex": 1},
+      "properties": {"pixelSize": 200},
+      "fields": "pixelSize"
+    }
+  }]
+}'
+```
+
+### Create Named Range
+
+```bash
+gws sheets spreadsheets batchUpdate --params '{"spreadsheetId": "SPREADSHEET_ID"}' --json '{
+  "requests": [{
+    "addNamedRange": {
+      "namedRange": {
+        "name": "SalesData",
+        "range": {"sheetId": 0, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 3}
+      }
+    }
+  }]
+}'
+```
+
+### Sort Range
+
+```bash
+gws sheets spreadsheets batchUpdate --params '{"spreadsheetId": "SPREADSHEET_ID"}' --json '{
+  "requests": [{
+    "sortRange": {
+      "range": {"sheetId": 0, "startRowIndex": 1, "startColumnIndex": 0, "endColumnIndex": 3},
+      "sortSpecs": [{"dimensionIndex": 1, "sortOrder": "DESCENDING"}]
+    }
+  }]
+}'
+```
+
+### Get Spreadsheet Metadata
+
+```bash
+gws sheets spreadsheets get --params '{"spreadsheetId": "SPREADSHEET_ID"}'
+```
+
+## Value Input Options
+
+When writing data, the `valueInputOption` parameter controls how values are interpreted:
+
+- **`RAW`**: Values are stored as-is (strings remain strings)
+- **`USER_ENTERED`**: Values are parsed as if typed by a user (formulas, dates, numbers auto-detected)
+
+```bash Store as string
+gws sheets spreadsheets values update \
+  --params '{"spreadsheetId": "ID", "range": "A1", "valueInputOption": "RAW"}' \
+  --json '{"values": [["=SUM(B1:B10)"]]}'
+```
+
+```bash Parse as formula
+gws sheets spreadsheets values update \
+  --params '{"spreadsheetId": "ID", "range": "A1", "valueInputOption": "USER_ENTERED"}' \
+  --json '{"values": [["=SUM(B1:B10)"]]}'
+```
+
+## Resources
+
+- `spreadsheets` - Spreadsheet operations
+- `spreadsheets.values` - Read/write cell values
+- `spreadsheets.sheets` - Sheet management
+- `spreadsheets.developerMetadata` - Custom metadata
+
+Use `gws sheets <resource> --help` to see all available methods.
+
+## Related Commands
+
+<CardGroup cols={2}>
+
+<Card title="Drive" icon="google-drive" href="/commands/drive">
+  Manage spreadsheet files
+</Card>
+
+<Card title="Docs" icon="file-lines" href="/commands/docs">
+  Work with documents
+</Card>
+
+</CardGroup>

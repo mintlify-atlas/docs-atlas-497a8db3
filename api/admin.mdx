@@ -1,0 +1,316 @@
+---
+title: "Admin SDK API"
+description: "Manage users, groups, and devices"
+---
+
+## Overview
+
+The Admin SDK Directory API allows Google Workspace administrators to manage users, groups, organizational units, devices, and other domain resources.
+
+**API Name:** `admin`  
+**Version:** `directory_v1`  
+**Official Documentation:** [Admin SDK Reference](https://developers.google.com/admin-sdk/directory/reference/rest)
+
+## Common Resources
+
+### Users
+
+Manage user accounts in your domain.
+
+<ParamField path="userKey" type="string" required>
+  The user's primary email address, alias, or unique ID
+</ParamField>
+
+<ParamField path="domain" type="string">
+  The domain name (for listing users)
+</ParamField>
+
+<ParamField path="maxResults" type="integer">
+  Maximum number of results per page (default: 100, max: 500)
+</ParamField>
+
+### Groups
+
+Manage groups and group memberships.
+
+<ParamField path="groupKey" type="string" required>
+  The group's email address, alias, or unique ID
+</ParamField>
+
+<ParamField path="domain" type="string">
+  The domain name
+</ParamField>
+
+### Organizational Units
+
+Manage organizational structure.
+
+<ParamField path="customerId" type="string" required>
+  Unique customer ID or `my_customer` for your domain
+</ParamField>
+
+<ParamField path="orgUnitPath" type="string">
+  Full path of the organizational unit
+</ParamField>
+
+## Common Methods
+
+### List Users
+
+```bash
+gws admin users list --params '{
+  "domain": "example.com",
+  "maxResults": 50
+}'
+```
+
+<ResponseField name="users" type="array">
+  Array of user objects
+  
+  <ResponseField name="id" type="string">
+    Unique user ID
+  </ResponseField>
+  
+  <ResponseField name="primaryEmail" type="string">
+    User's primary email address
+  </ResponseField>
+  
+  <ResponseField name="name" type="object">
+    User's name (givenName, familyName)
+  </ResponseField>
+  
+  <ResponseField name="orgUnitPath" type="string">
+    User's organizational unit
+  </ResponseField>
+</ResponseField>
+
+### Get User
+
+```bash
+gws admin users get --params '{
+  "userKey": "alice@example.com"
+}'
+```
+
+### Create User
+
+```bash
+gws admin users insert --json '{
+  "primaryEmail": "newuser@example.com",
+  "name": {
+    "givenName": "New",
+    "familyName": "User"
+  },
+  "password": "TempPassword123!"
+}'
+```
+
+### Update User
+
+```bash
+gws admin users update \
+  --params '{"userKey": "alice@example.com"}' \
+  --json '{
+    "name": {
+      "givenName": "Alice",
+      "familyName": "Johnson"
+    },
+    "orgUnitPath": "/Engineering"
+  }'
+```
+
+### Delete User
+
+```bash
+gws admin users delete --params '{
+  "userKey": "olduser@example.com"
+}'
+```
+
+## Group Management
+
+<CodeGroup>
+```bash List groups
+gws admin groups list --params '{
+  "domain": "example.com",
+  "maxResults": 100
+}'
+```
+
+```bash Create group
+gws admin groups insert --json '{
+  "email": "team@example.com",
+  "name": "Engineering Team",
+  "description": "All engineering staff"
+}'
+```
+
+```bash Add member to group
+gws admin members insert \
+  --params '{"groupKey": "team@example.com"}' \
+  --json '{
+    "email": "alice@example.com",
+    "role": "MEMBER"
+  }'
+```
+
+```bash List group members
+gws admin members list --params '{
+  "groupKey": "team@example.com"
+}'
+```
+</CodeGroup>
+
+## Device Management
+
+<CodeGroup>
+```bash List Chrome OS devices
+gws admin chromeosdevices list --params '{
+  "customerId": "my_customer",
+  "maxResults": 50
+}'
+```
+
+```bash Get device
+gws admin chromeosdevices get --params '{
+  "customerId": "my_customer",
+  "deviceId": "device123"
+}'
+```
+
+```bash Update device
+gws admin chromeosdevices patch \
+  --params '{
+    "customerId": "my_customer",
+    "deviceId": "device123"
+  }' \
+  --json '{
+    "annotatedUser": "alice@example.com",
+    "annotatedLocation": "Office 301"
+  }'
+```
+</CodeGroup>
+
+## Organizational Units
+
+```bash
+# List OUs
+gws admin orgunits list --params '{
+  "customerId": "my_customer"
+}'
+
+# Create OU
+gws admin orgunits insert \
+  --params '{"customerId": "my_customer"}' \
+  --json '{
+    "name": "Sales",
+    "parentOrgUnitPath": "/",
+    "description": "Sales department"
+  }'
+```
+
+## Response Format
+
+List users response:
+
+```json
+{
+  "users": [
+    {
+      "id": "12345678901234567890",
+      "primaryEmail": "alice@example.com",
+      "name": {
+        "givenName": "Alice",
+        "familyName": "Smith",
+        "fullName": "Alice Smith"
+      },
+      "isAdmin": false,
+      "isDelegatedAdmin": false,
+      "creationTime": "2024-01-15T10:00:00.000Z",
+      "orgUnitPath": "/Engineering"
+    }
+  ],
+  "nextPageToken": "abc123..."
+}
+```
+
+User details response:
+
+```json
+{
+  "id": "12345678901234567890",
+  "primaryEmail": "alice@example.com",
+  "name": {
+    "givenName": "Alice",
+    "familyName": "Smith"
+  },
+  "isAdmin": false,
+  "suspended": false,
+  "orgUnitPath": "/Engineering",
+  "phones": [{"value": "+1-555-123-4567", "type": "work"}],
+  "organizations": [{"title": "Software Engineer", "department": "Engineering"}]
+}
+```
+
+## Key Resources
+
+- `users` - Manage user accounts
+- `groups` - Manage groups
+- `members` - Manage group memberships
+- `orgunits` - Manage organizational units
+- `chromeosdevices` - Manage Chrome OS devices
+- `mobiledevices` - Manage mobile devices
+- `domains` - Manage domain settings
+- `roles` - Manage admin roles
+- `schemas` - Manage custom user schemas
+
+## Common Use Cases
+
+### Provision New Employee
+
+```bash
+# 1. Create user
+gws admin users insert --json '{
+  "primaryEmail": "newuser@example.com",
+  "name": {"givenName": "New", "familyName": "User"},
+  "password": "TempPass123!",
+  "orgUnitPath": "/Engineering"
+}'
+
+# 2. Add to groups
+gws admin members insert \
+  --params '{"groupKey": "engineering@example.com"}' \
+  --json '{"email": "newuser@example.com"}'
+```
+
+### Suspend User Account
+
+```bash
+gws admin users update \
+  --params '{"userKey": "alice@example.com"}' \
+  --json '{"suspended": true}'
+```
+
+### Make User Admin
+
+```bash
+gws admin users makeAdmin \
+  --params '{"userKey": "alice@example.com"}' \
+  --json '{"status": true}'
+```
+
+## Learn More
+
+- [Admin SDK Guide](https://developers.google.com/admin-sdk/directory/v1/guides)
+- [Manage users](https://developers.google.com/admin-sdk/directory/v1/guides/manage-users)
+- [Manage groups](https://developers.google.com/admin-sdk/directory/v1/guides/manage-groups)
+- [Manage devices](https://developers.google.com/admin-sdk/directory/v1/guides/manage-chrome-devices)
+
+## Schema Inspection
+
+Before calling any method, inspect its schema:
+
+```bash
+gws schema admin.users.list
+gws schema admin.users.insert
+```

@@ -1,0 +1,158 @@
+---
+title: Architecture
+description: Understanding the gws CLI architecture and design patterns
+---
+
+## Overview
+
+The `gws` CLI uses a **two-phase argument parsing** strategy that enables dynamic command generation from Google's Discovery Service. This architecture allows the CLI to support all Google Workspace APIs without requiring code generation or hardcoded commands.
+
+## Two-Phase Parsing Strategy
+
+Unlike traditional CLIs that define all commands at compile time, `gws` builds its command tree dynamically:
+
+1. **Phase 1: Service Extraction**
+   - Parse `argv[1]` to identify the requested service (e.g., `drive`, `gmail`, `calendar`)
+   - Minimal parsing to extract just the service name
+
+2. **Phase 2: Dynamic Command Building**
+   - Fetch the service's Discovery Document from Google (cached for 24 hours)
+   - Build a complete `clap::Command` tree from the document's resources and methods
+   - Re-parse the full argument list against the dynamic command structure
+   - Authenticate, construct the HTTP request, and execute
+
+## Dynamic Discovery
+
+<Warning>
+  This project does **NOT** use generated Rust crates (e.g., `google-drive3`) for API interaction. Instead, it fetches the Discovery JSON at runtime and builds `clap` commands dynamically.
+</Warning>
+
+When adding a new service:
+- Register it in `src/services.rs`
+- Verify the Discovery URL pattern in `src/discovery.rs`
+- **Do NOT** add new crates to `Cargo.toml` for standard Google APIs
+
+All API methods are discovered and invoked at runtime, ensuring `gws` automatically picks up new endpoints as Google adds them.
+
+## Discovery Document Flow
+
+```
+┌─────────────────┐
+│  User Command   │
+│  gws drive ...  │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────────────┐
+│  Phase 1: Parse Service │
+│  Extract "drive"        │
+└────────┬────────────────┘
+         │
+         ▼
+┌──────────────────────────┐
+│  Fetch Discovery Doc     │
+│  (cached 24h)            │
+│  drive.googleapis.com/   │
+│  discovery/v1/apis/      │
+│  drive/v3/rest           │
+└────────┬─────────────────┘
+         │
+         ▼
+┌──────────────────────────┐
+│  Build clap::Command     │
+│  - Resources → Subcommands│
+│  - Methods → Actions      │
+│  - Parameters → Flags     │
+└────────┬─────────────────┘
+         │
+         ▼
+┌──────────────────────────┐
+│  Phase 2: Re-parse Args  │
+│  Match against dynamic   │
+│  command tree            │
+└────────┬─────────────────┘
+         │
+         ▼
+┌──────────────────────────┐
+│  Execute API Request     │
+│  - Authenticate          │
+│  - Build HTTP request    │
+│  - Handle response       │
+└──────────────────────────┘
+```
+
+## Source Layout
+
+| File | Purpose |
+|---|---|
+| `src/main.rs` | Entrypoint, two-phase CLI parsing, method resolution |
+| `src/discovery.rs` | Serde models for Discovery Document + fetch/cache |
+| `src/services.rs` | Service alias → Discovery API name/version mapping |
+| `src/auth.rs` | Headless OAuth2 via `yup-oauth2` |
+| `src/commands.rs` | Recursive `clap::Command` builder from Discovery resources |
+| `src/executor.rs` | HTTP request construction, response handling, schema validation |
+| `src/schema.rs` | `gws schema` command — introspect API method schemas |
+| `src/error.rs` | Structured JSON error output |
+| `src/validate.rs` | Input validation and path safety helpers |
+| `src/helpers/mod.rs` | URL encoding and resource name validation |
+
+## Key Components
+
+### Discovery Service Integration
+
+The Discovery Service provides machine-readable API descriptions that `gws` parses to:
+- Generate command-line argument structure
+- Validate request parameters
+- Construct API requests
+- Parse and validate responses
+
+### Command Generation
+
+The `src/commands.rs` module recursively builds a `clap::Command` tree:
+- **Resources** become subcommands (e.g., `drive files`, `gmail users messages`)
+- **Methods** become actions (e.g., `list`, `get`, `create`, `update`, `delete`)
+- **Parameters** become CLI flags with appropriate types and validation
+
+### Request Execution
+
+The `src/executor.rs` module:
+1. Constructs HTTP requests from parsed arguments
+2. Handles authentication via `src/auth.rs`
+3. Manages multipart uploads for file operations
+4. Processes paginated responses
+5. Outputs structured JSON results
+
+## Input Validation & Security
+
+<Warning>
+  This CLI is frequently invoked by AI/LLM agents. Always assume inputs can be adversarial.
+</Warning>
+
+### Path Safety
+
+All file paths are validated to prevent:
+- Absolute path access
+- Directory traversal (`../` attacks)
+- Symlink traversal outside CWD
+- Control character injection
+
+Use validators from `src/validate.rs`:
+- `validate_safe_output_dir()` for write paths
+- `validate_safe_dir_path()` for read paths
+
+### URL Encoding
+
+User-supplied values are properly encoded:
+- **Path segments**: Use `helpers::encode_path_segment()`
+- **Query parameters**: Use reqwest's `.query()` builder
+- **Resource names**: Use `helpers::validate_resource_name()`
+
+See [Contributing](/development/contributing#input-validation) for detailed validation requirements.
+
+## Output Format
+
+All output — success, errors, and download metadata — is structured JSON. This ensures:
+- Consistent parsing for AI agents and automation tools
+- Machine-readable error messages
+- Easy integration with `jq` and other JSON processors
+- Predictable data structures across all API operations

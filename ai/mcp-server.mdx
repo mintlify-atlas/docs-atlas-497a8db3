@@ -1,0 +1,138 @@
+---
+title: MCP Server
+description: Expose Google Workspace APIs via Model Context Protocol for AI clients
+---
+
+## What is MCP?
+
+The [Model Context Protocol (MCP)](https://modelcontextprotocol.io) is an open standard that enables AI applications to securely access external tools and data sources. MCP servers expose capabilities as structured tools that any MCP-compatible client can discover and invoke.
+
+The `gws mcp` command starts an MCP server over stdio, exposing Google Workspace APIs as tools that AI clients (Claude Desktop, Gemini CLI, VS Code, etc.) can call directly.
+
+## Starting the MCP Server
+
+The `gws mcp` command accepts flags to control which services and tools are exposed:
+
+```bash
+# Expose only Drive tools
+gws mcp -s drive
+
+# Expose multiple services
+gws mcp -s drive,gmail,calendar
+
+# Expose all services (many tools!)
+gws mcp -s all
+```
+
+### Available Flags
+
+| Flag | Description |
+|------|-------------|
+| `-s, --services <list>` | Comma-separated list of services to expose, or `all` |
+| `-w, --workflows` | Also expose workflow tools |
+| `-e, --helpers` | Also expose helper tools |
+
+### Services Flag
+
+The `-s` flag controls which Google Workspace services are exposed as tools. You can specify:
+
+- Individual services: `drive`, `gmail`, `calendar`, `sheets`, `docs`, `slides`, `chat`, `tasks`, `people`, `admin`, etc.
+- Multiple services: `drive,gmail,calendar`
+- All services: `all`
+
+### Workflows and Helpers
+
+By default, only core service methods are exposed. Use `-w` to include workflow tools (multi-step automation sequences) and `-e` to include helper tools (shortcuts for common operations):
+
+```bash
+# Expose Drive + workflow tools
+gws mcp -s drive -w
+
+# Expose Gmail + helper tools
+gws mcp -s gmail -e
+
+# Expose Calendar with workflows and helpers
+gws mcp -s calendar -w -e
+```
+
+## Client Configuration
+
+MCP clients discover and connect to MCP servers via configuration files. Here's how to configure the `gws` MCP server:
+
+### Claude Desktop
+
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%/Claude/claude_desktop_config.json` (Windows):
+
+```json
+{
+  "mcpServers": {
+    "gws": {
+      "command": "gws",
+      "args": ["mcp", "-s", "drive,gmail,calendar"]
+    }
+  }
+}
+```
+
+### Gemini CLI
+
+Add to your Gemini CLI configuration:
+
+```json
+{
+  "mcpServers": {
+    "gws": {
+      "command": "gws",
+      "args": ["mcp", "-s", "drive,gmail,calendar"]
+    }
+  }
+}
+```
+
+### VS Code
+
+If using an MCP extension for VS Code, add the server configuration according to the extension's documentation.
+
+## Tool Limit Considerations
+
+Each Google Workspace service exposes roughly 10–80 tools depending on the API surface. Most MCP clients have a tool limit (typically 50–100 tools).
+
+**Important**: Keep your service list focused on what you actually need to stay under your client's tool limit.
+
+### Recommended Configurations
+
+```bash
+# Lightweight (15-30 tools)
+gws mcp -s drive,gmail
+
+# Balanced (30-60 tools)
+gws mcp -s drive,gmail,calendar
+
+# Comprehensive (60-100 tools)
+gws mcp -s drive,gmail,calendar,sheets,docs
+
+# Maximum (100+ tools - may exceed client limits)
+gws mcp -s all
+```
+
+If you exceed your client's tool limit, the client may fail to load the server or only expose a subset of tools. Start with fewer services and add more as needed.
+
+## Authentication
+
+The MCP server inherits authentication from your `gws` CLI configuration. Make sure you've authenticated before starting the MCP server:
+
+```bash
+# One-time setup
+gws auth setup
+
+# Or subsequent logins
+gws auth login
+```
+
+See the [Authentication](/authentication/setup) guide for more details on auth workflows.
+
+## Next Steps
+
+- [Agent Skills](/ai/agent-skills) - Install 100+ agent skills for AI automation
+- [Gemini Extension](/ai/gemini-extension) - Use the CLI with Gemini CLI
+- [Authentication Setup](/authentication/setup) - Configure Google Cloud authentication

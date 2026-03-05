@@ -1,0 +1,254 @@
+---
+title: "Gmail Commands"
+description: "Send, read, and manage email with Gmail API"
+---
+
+## Overview
+
+The Gmail service provides access to Gmail v1 API for sending email, reading messages, managing labels, and configuring filters.
+
+**API**: `gmail` (v1)
+
+## Common Use Cases
+
+- Send and read emails
+- Search messages
+- Manage labels and filters
+- Set up push notifications
+- Triage inbox
+
+## Helper Commands
+
+### `+send`
+
+Send a simple text email:
+
+```bash
+gws gmail +send --to alice@example.com --subject "Hello" --body "Hi Alice!"
+```
+
+**Features**:
+- Automatic RFC 2822 formatting
+- Base64 encoding handled internally
+- For HTML bodies or attachments, use the raw API
+
+### `+watch`
+
+Set up push notifications to a Pub/Sub topic:
+
+```bash
+gws gmail +watch --topic projects/PROJECT_ID/topics/TOPIC_NAME
+```
+
+**Requirements**:
+- Pub/Sub topic must exist
+- Topic must grant `publish` permission to `gmail-api-push@system.gserviceaccount.com`
+
+### `+triage`
+
+Query unread messages and mark as read:
+
+```bash
+gws gmail +triage --query "is:unread from:notifications@example.com"
+```
+
+## Command Examples
+
+### List Messages
+
+<CodeGroup>
+
+```bash List inbox
+gws gmail users messages list --params '{"userId": "me", "maxResults": 10}'
+```
+
+```bash Search messages
+gws gmail users messages list --params '{"userId": "me", "q": "from:alice@example.com"}'
+```
+
+```bash Get unread messages
+gws gmail users messages list --params '{"userId": "me", "q": "is:unread"}'
+```
+
+```bash Filter by label
+gws gmail users messages list --params '{"userId": "me", "labelIds": ["INBOX", "IMPORTANT"]}'
+```
+
+</CodeGroup>
+
+<Accordion title="Example Response">
+```json
+{
+  "messages": [
+    {
+      "id": "18d4f2a1b2c3d4e5",
+      "threadId": "18d4f2a1b2c3d4e5"
+    }
+  ],
+  "resultSizeEstimate": 42
+}
+```
+</Accordion>
+
+### Get Message Details
+
+```bash
+gws gmail users messages get --params '{"userId": "me", "id": "MESSAGE_ID"}'
+```
+
+<Accordion title="Example Response">
+```json
+{
+  "id": "18d4f2a1b2c3d4e5",
+  "threadId": "18d4f2a1b2c3d4e5",
+  "labelIds": ["INBOX", "UNREAD"],
+  "snippet": "Hi, this is a test message...",
+  "payload": {
+    "headers": [
+      {"name": "From", "value": "alice@example.com"},
+      {"name": "Subject", "value": "Test Email"}
+    ],
+    "body": {
+      "size": 1234,
+      "data": "SGVsbG8gV29ybGQh"
+    }
+  }
+}
+```
+</Accordion>
+
+### Send a Message
+
+```bash Simple text email
+gws gmail users messages send --params '{"userId": "me"}' --json '{
+  "raw": "<base64-encoded-RFC2822-message>"
+}'
+```
+
+```bash Using helper
+gws gmail +send --to user@example.com --subject "Deployment Complete" --body "The staging environment is ready."
+```
+
+### Modify Message Labels
+
+```bash Mark as read
+gws gmail users messages modify --params '{"userId": "me", "id": "MESSAGE_ID"}' --json '{"removeLabelIds": ["UNREAD"]}'
+```
+
+```bash Archive message
+gws gmail users messages modify --params '{"userId": "me", "id": "MESSAGE_ID"}' --json '{"removeLabelIds": ["INBOX"]}'
+```
+
+```bash Add label
+gws gmail users messages modify --params '{"userId": "me", "id": "MESSAGE_ID"}' --json '{"addLabelIds": ["STARRED"]}'
+```
+
+### Trash a Message
+
+```bash
+gws gmail users messages trash --params '{"userId": "me", "id": "MESSAGE_ID"}'
+```
+
+### Manage Labels
+
+```bash List labels
+gws gmail users labels list --params '{"userId": "me"}'
+```
+
+```bash Create label
+gws gmail users labels create --params '{"userId": "me"}' --json '{"name": "Project Alpha"}'
+```
+
+```bash Delete label
+gws gmail users labels delete --params '{"userId": "me", "id": "LABEL_ID"}'
+```
+
+### Get User Profile
+
+```bash
+gws gmail users getProfile --params '{"userId": "me"}'
+```
+
+<Accordion title="Example Response">
+```json
+{
+  "emailAddress": "user@example.com",
+  "messagesTotal": 1523,
+  "threadsTotal": 892,
+  "historyId": "12345"
+}
+```
+</Accordion>
+
+### Manage Drafts
+
+```bash List drafts
+gws gmail users drafts list --params '{"userId": "me"}'
+```
+
+```bash Create draft
+gws gmail users drafts create --params '{"userId": "me"}' --json '{"message": {"raw": "<base64>"}}'
+```
+
+```bash Send draft
+gws gmail users drafts send --params '{"userId": "me"}' --json '{"id": "DRAFT_ID"}'
+```
+
+### Manage Filters
+
+```bash List filters
+gws gmail users settings filters list --params '{"userId": "me"}'
+```
+
+```bash Create filter
+gws gmail users settings filters create --params '{"userId": "me"}' --json '{
+  "criteria": {"from": "notifications@example.com"},
+  "action": {"addLabelIds": ["LABEL_ID"], "removeLabelIds": ["INBOX"]}
+}'
+```
+
+## Search Operators
+
+Gmail search syntax in the `q` parameter:
+
+```bash From specific sender
+gws gmail users messages list --params '{"userId": "me", "q": "from:alice@example.com"}'
+```
+
+```bash Has attachment
+gws gmail users messages list --params '{"userId": "me", "q": "has:attachment"}'
+```
+
+```bash Date range
+gws gmail users messages list --params '{"userId": "me", "q": "after:2026/01/01 before:2026/02/01"}'
+```
+
+```bash Combine conditions
+gws gmail users messages list --params '{"userId": "me", "q": "from:alice@example.com has:attachment is:unread"}'
+```
+
+## Resources
+
+- `users.messages` - Email messages
+- `users.threads` - Email threads
+- `users.labels` - Label management
+- `users.drafts` - Draft messages
+- `users.settings.filters` - Email filters
+- `users.settings.forwardingAddresses` - Forwarding config
+- `users.settings.sendAs` - Send-as aliases
+
+Use `gws gmail <resource> --help` to see all available methods.
+
+## Related Commands
+
+<CardGroup cols={2}>
+
+<Card title="Calendar" icon="calendar" href="/commands/calendar">
+  Schedule meetings from email
+</Card>
+
+<Card title="Chat" icon="comments" href="/commands/chat">
+  Team messaging
+</Card>
+
+</CardGroup>

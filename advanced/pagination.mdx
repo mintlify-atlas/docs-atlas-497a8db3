@@ -1,0 +1,113 @@
+---
+title: "Pagination"
+description: "Auto-paginate through API results with streaming output"
+---
+
+Many Google Workspace APIs return paginated results. The CLI provides automatic pagination with configurable limits and delays.
+
+## Auto-Pagination Flag
+
+Use `--page-all` to automatically fetch all pages and stream them as NDJSON (newline-delimited JSON).
+
+```bash
+gws drive files list --params '{"pageSize": 100}' --page-all
+```
+
+Each page is output as a separate JSON line, making it easy to process with tools like `jq`.
+
+## Configuration Flags
+
+| Flag | Description | Default |
+|------|-------------|--------|
+| `--page-all` | Auto-paginate through all pages (NDJSON output) | off |
+| `--page-limit <N>` | Maximum number of pages to fetch | 10 |
+| `--page-delay <MS>` | Delay between page fetches in milliseconds | 100 ms |
+
+## NDJSON Output Format
+
+When `--page-all` is enabled, each page is printed as a single JSON line:
+
+```bash
+gws drive files list --params '{"pageSize": 5}' --page-all
+```
+
+```json
+{"files":[{"id":"1","name":"file1.pdf"},...],"nextPageToken":"token1"}
+{"files":[{"id":"6","name":"file6.pdf"},...],"nextPageToken":"token2"}
+{"files":[{"id":"11","name":"file11.pdf"},...],"nextPageToken":"token3"}
+```
+
+## Processing with jq
+
+Extract specific fields from paginated results:
+
+```bash
+# Extract file names from all pages
+gws drive files list --params '{"pageSize": 100}' --page-all | jq -r '.files[].name'
+
+# Count total files across all pages
+gws drive files list --params '{"pageSize": 100}' --page-all | jq -s 'map(.files | length) | add'
+
+# Filter and collect specific fields
+gws drive files list --params '{"pageSize": 100}' --page-all \
+  | jq -r '.files[] | select(.mimeType == "application/pdf") | .name'
+```
+
+## Rate Limiting
+
+Control the rate of pagination requests to avoid hitting API quotas:
+
+```bash
+# Fetch up to 50 pages with 500ms delay between pages
+gws drive files list --params '{"pageSize": 100}' --page-all --page-limit 50 --page-delay 500
+```
+
+## Implementation Details
+
+The pagination system (defined in `src/executor.rs:41-60`):
+
+1. Sends the initial request
+2. Checks for `nextPageToken` in the response
+3. Continues fetching pages until:
+   - No `nextPageToken` is present (end of results)
+   - `--page-limit` is reached
+   - An error occurs
+4. Applies `--page-delay` between requests
+
+## Use Cases
+
+**Batch processing**: Process all files in a Drive folder
+
+```bash
+gws drive files list --params '{"q": "'Documents' in parents", "pageSize": 100}' \
+  --page-all | jq -r '.files[].id'
+```
+
+**Data export**: Export all emails matching a query
+
+```bash
+gws gmail users messages list --params '{"userId": "me", "q": "is:unread", "maxResults": 100}' \
+  --page-all > unread-messages.ndjson
+```
+
+**Audit logging**: Collect all calendar events in a date range
+
+```bash
+gws calendar events list \
+  --params '{"calendarId": "primary", "timeMin": "2024-01-01T00:00:00Z", "maxResults": 250}' \
+  --page-all | jq -r '.items[] | [.start.dateTime, .summary] | @tsv'
+```
+
+## Best Practices
+
+<Tip>
+Set `pageSize` to the maximum allowed by the API to minimize the number of requests.
+</Tip>
+
+<Warning>
+Without `--page-limit`, pagination will continue until all results are fetched or an error occurs. For large datasets, always set a reasonable limit.
+</Warning>
+
+<Note>
+NDJSON format is line-oriented, making it stream-friendly and suitable for processing large datasets without loading everything into memory.
+</Note>

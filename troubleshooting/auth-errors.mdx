@@ -1,0 +1,264 @@
+---
+title: 'Authentication Errors'
+description: 'Troubleshoot OAuth, token expiration, and credential issues'
+---
+
+## Overview
+
+Authentication errors occur when the CLI cannot obtain or use valid credentials to access Google Workspace APIs. This guide covers common authentication problems and their solutions.
+
+## Common OAuth Errors
+
+<Accordion title="Error: invalid_grant - Token expired or revoked">
+  **Cause**: Your OAuth refresh token has expired or been revoked.
+
+  **Solution**: Re-authenticate with the CLI:
+  ```bash
+  gws auth login
+  ```
+
+  If the error persists, remove existing credentials and start fresh:
+  ```bash
+  rm ~/.config/gws/credentials.json
+  gws auth login
+  ```
+
+  **Note**: Credentials are encrypted and stored in your OS keyring. The plaintext file at `~/.config/gws/credentials.json` is a fallback.
+</Accordion>
+
+<Accordion title="Error: invalid_client - Client authentication failed">
+  **Cause**: The OAuth client secret is missing, malformed, or doesn't match your Google Cloud project.
+
+  **Solution**: 
+  1. Verify `~/.config/gws/client_secret.json` exists and contains valid OAuth client credentials
+  2. Re-download the client secret from [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+  3. Ensure you created a **Desktop app** OAuth client (not Web application)
+  4. Save the downloaded JSON to `~/.config/gws/client_secret.json`
+  5. Run `gws auth login` again
+</Accordion>
+
+<Accordion title="Error: redirect_uri_mismatch">
+  **Cause**: The OAuth client is configured for the wrong redirect URI.
+
+  **Solution**:
+  The CLI uses `http://localhost:PORT` for OAuth callbacks. Ensure your OAuth client includes `http://localhost` in its authorized redirect URIs:
+  
+  1. Go to [Credentials](https://console.cloud.google.com/apis/credentials)
+  2. Edit your OAuth 2.0 Client ID
+  3. Add `http://localhost` to **Authorized redirect URIs** (the CLI will use an ephemeral port)
+  4. Save and retry `gws auth login`
+</Accordion>
+
+<Accordion title="Google hasn't verified this app">
+  **Cause**: Your OAuth consent screen is in testing mode and hasn't been verified by Google.
+
+  **Solution**: This is normal for personal projects. Click **Continue** to proceed.
+  
+  If you see scope checkboxes after clicking Continue, select all required scopes (or click **Select all**) before proceeding.
+
+  **Publishing your app**: If you need to remove this warning, submit your app for [OAuth verification](https://support.google.com/cloud/answer/9110914). This is only necessary for apps used by external users.
+</Accordion>
+
+## Token Expiration Issues
+
+### Symptom: Commands Fail After Working Previously
+
+If commands worked before but now return `401 Unauthorized`:
+
+```json
+{
+  "error": {
+    "code": 401,
+    "message": "Request had invalid authentication credentials."
+  }
+}
+```
+
+**Solution**: Your access token has expired. The CLI should automatically refresh it, but if that fails:
+
+```bash
+gws auth login
+```
+
+### Using Pre-obtained Tokens
+
+If you're using `GOOGLE_WORKSPACE_CLI_TOKEN` with a pre-obtained access token:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_TOKEN=$(gcloud auth print-access-token)
+```
+
+Remember:
+- Access tokens expire after 1 hour
+- You must refresh the token before expiration
+- The CLI cannot auto-refresh tokens set via environment variable
+
+## Invalid Credentials
+
+### Error: Credentials File Not Found
+
+```
+Error: No credentials found. Please run 'gws auth login' first.
+```
+
+**Solution**: You haven't authenticated yet:
+
+```bash
+gws auth setup  # First-time setup
+# OR
+gws auth login  # If OAuth client already exists
+```
+
+### Error: Malformed Credentials JSON
+
+```
+Error: Failed to parse credentials file
+```
+
+**Solution**: Your credentials file is corrupted:
+
+1. Remove the corrupted file:
+   ```bash
+   rm ~/.config/gws/credentials.json
+   ```
+2. Re-authenticate:
+   ```bash
+   gws auth login
+   ```
+
+## Permission Issues
+
+### Error: Insufficient Permission (403)
+
+```json
+{
+  "error": {
+    "code": 403,
+    "message": "Insufficient Permission",
+    "reason": "forbidden"
+  }
+}
+```
+
+**Causes**:
+1. Your OAuth token doesn't include the required scope
+2. Your account doesn't have permission to access the resource
+3. You need domain-wide delegation (for service accounts)
+
+**Solutions**:
+
+1. **Missing OAuth scopes**: Re-authenticate to request additional scopes:
+   ```bash
+   gws auth login
+   ```
+   Select all required scopes when prompted.
+
+2. **Account permissions**: Verify your Google Workspace account has the necessary permissions (e.g., Admin role for Admin SDK operations).
+
+3. **Service account delegation**: If using a service account, ensure domain-wide delegation is configured:
+   ```bash
+   export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/path/to/service-account.json
+   export GOOGLE_WORKSPACE_CLI_IMPERSONATED_USER=admin@example.com
+   ```
+
+## Re-authenticating
+
+To completely reset your authentication:
+
+```bash
+# Remove all credentials
+rm ~/.config/gws/credentials.json
+rm ~/.config/gws/client_secret.json
+
+# Start fresh
+gws auth setup
+```
+
+## Debugging Tips
+
+### Check Credential Precedence
+
+The CLI uses credentials in this order:
+
+1. `GOOGLE_WORKSPACE_CLI_TOKEN` (access token)
+2. `GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE` (credentials file path)
+3. Encrypted credentials in OS keyring
+4. `~/.config/gws/credentials.json` (plaintext fallback)
+
+To debug, check which credential source is active:
+
+```bash
+env | grep GOOGLE_WORKSPACE_CLI
+```
+
+### Verify OAuth Client Configuration
+
+Your `~/.config/gws/client_secret.json` should look like:
+
+```json
+{
+  "installed": {
+    "client_id": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+    "client_secret": "YOUR_CLIENT_SECRET",
+    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    "token_uri": "https://oauth2.googleapis.com/token",
+    "redirect_uris": ["http://localhost"]
+  }
+}
+```
+
+**Note**: The `"installed"` key indicates a Desktop app OAuth client.
+
+### Test with Dry Run
+
+Verify authentication without making actual API calls:
+
+```bash
+gws drive files list --params '{"pageSize": 1}' --dry-run
+```
+
+This will show the request details without executing it.
+
+## Headless/CI Environments
+
+Authentication errors are common in headless environments (servers, CI/CD).
+
+### Export Credentials from Local Machine
+
+1. Authenticate on a machine with a browser:
+   ```bash
+   gws auth login
+   ```
+
+2. Export credentials:
+   ```bash
+   gws auth export --unmasked > credentials.json
+   ```
+
+3. On the headless machine:
+   ```bash
+   export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/path/to/credentials.json
+   gws drive files list
+   ```
+
+### Service Account Authentication
+
+For server-to-server authentication:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/path/to/service-account.json
+gws drive files list
+```
+
+No `gws auth login` required.
+
+## Still Having Issues?
+
+If authentication continues to fail:
+
+1. Check the [Common Issues](/troubleshooting/common-issues) guide
+2. Review the [Authentication](/authentication) documentation
+3. File an issue on [GitHub](https://github.com/googleworkspace/cli/issues) with:
+   - The exact error message (redact sensitive info)
+   - Your OS and CLI version (`gws --version`)
+   - Authentication method (OAuth, service account, etc.)

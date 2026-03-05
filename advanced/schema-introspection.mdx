@@ -1,0 +1,332 @@
+---
+title: "Schema Introspection"
+description: "Inspect API method schemas and request/response structures"
+---
+
+The `gws schema` command lets you inspect the structure of any API method without reading documentation or making requests.
+
+## Basic Syntax
+
+```bash
+gws schema <service.resource.method>
+```
+
+Examples:
+
+```bash
+gws schema drive.files.list
+gws schema gmail.users.messages.get
+gws schema sheets.spreadsheets.create
+```
+
+## Output Structure
+
+The command returns detailed information about the method:
+
+```bash
+gws schema drive.files.list
+```
+
+```json
+{
+  "httpMethod": "GET",
+  "path": "drive/v3/files",
+  "description": "Lists the user's files.",
+  "parameters": {
+    "pageSize": {
+      "type": "integer",
+      "required": false,
+      "location": "query",
+      "description": "The maximum number of files to return per page.",
+      "format": "int32"
+    },
+    "q": {
+      "type": "string",
+      "required": false,
+      "location": "query",
+      "description": "A query for filtering the file results."
+    },
+    "pageToken": {
+      "type": "string",
+      "required": false,
+      "location": "query",
+      "description": "The token for continuing a previous list request on the next page."
+    }
+  },
+  "response": {
+    "schemaRef": "FileList",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "File"
+          }
+        },
+        "nextPageToken": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "scopes": [
+    "https://www.googleapis.com/auth/drive",
+    "https://www.googleapis.com/auth/drive.readonly"
+  ]
+}
+```
+
+## Resolving Schema References
+
+By default, schema output includes `$ref` placeholders that point to named types. Use `--resolve-refs` to expand all references inline:
+
+```bash
+gws schema drive.files.create --resolve-refs
+```
+
+This will recursively expand all `$ref` references in the schema tree, showing the full structure without circular references.
+
+### Without `--resolve-refs`:
+
+```json
+{
+  "requestBody": {
+    "schemaRef": "File",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "parents": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "permissions": {
+          "type": "array",
+          "items": {"$ref": "Permission"}
+        }
+      }
+    }
+  }
+}
+```
+
+### With `--resolve-refs`:
+
+```json
+{
+  "requestBody": {
+    "schemaRef": "File",
+    "schema": {
+      "type": "object",
+      "properties": {
+        "name": {"type": "string"},
+        "parents": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "permissions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "role": {"type": "string"},
+              "type": {"type": "string"},
+              "emailAddress": {"type": "string"}
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+## Inspecting Type Definitions
+
+You can also inspect named types directly:
+
+```bash
+gws schema drive.File
+```
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "The ID of the file."
+    },
+    "name": {
+      "type": "string",
+      "description": "The name of the file."
+    },
+    "mimeType": {
+      "type": "string",
+      "description": "The MIME type of the file."
+    },
+    "createdTime": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The time at which the file was created (RFC 3339 date-time)."
+    }
+  }
+}
+```
+
+## Use Cases
+
+### Building Request Payloads
+
+```bash
+# Inspect the schema for creating a spreadsheet
+gws schema sheets.spreadsheets.create --resolve-refs
+
+# Use the output to build a valid JSON request
+gws sheets spreadsheets create --json '{
+  "properties": {
+    "title": "Budget 2024",
+    "locale": "en_US"
+  }
+}'
+```
+
+### Understanding Query Parameters
+
+```bash
+gws schema gmail.users.messages.list
+```
+
+Output shows all available query parameters:
+
+```json
+{
+  "parameters": {
+    "userId": {
+      "type": "string",
+      "required": true,
+      "location": "path",
+      "description": "The user's email address."
+    },
+    "q": {
+      "type": "string",
+      "required": false,
+      "location": "query",
+      "description": "Only return messages matching the specified query."
+    },
+    "maxResults": {
+      "type": "integer",
+      "required": false,
+      "location": "query",
+      "description": "Maximum number of messages to return.",
+      "default": "100"
+    }
+  }
+}
+```
+
+### Discovering Available Scopes
+
+```bash
+gws schema drive.files.create | jq -r '.scopes[]'
+```
+
+Output:
+
+```
+https://www.googleapis.com/auth/drive
+https://www.googleapis.com/auth/drive.file
+```
+
+### Finding Required vs Optional Fields
+
+```bash
+gws schema calendar.events.insert --resolve-refs | jq '.requestBody.schema.properties | to_entries[] | select(.value.required == true)'
+```
+
+## Implementation Details
+
+The schema introspection system (`src/schema.rs:34-101`):
+
+1. Parses the dotted path (e.g., `drive.files.list`)
+2. Fetches the Discovery Document for the service
+3. Navigates the resource tree to find the method
+4. Extracts parameters, request schema, and response schema
+5. Optionally resolves `$ref` references recursively
+
+## Error Messages
+
+**Invalid path:**
+
+```bash
+gws schema drive.invalid
+```
+
+```json
+{
+  "error": "Resource 'invalid' not found. Available resources: [\"files\", \"drives\", \"permissions\", ...]"
+}
+```
+
+**Method not found:**
+
+```bash
+gws schema drive.files.invalid
+```
+
+```json
+{
+  "error": "Method 'invalid' not found. Available methods: [\"list\", \"get\", \"create\", \"update\", \"delete\", ...]"
+}
+```
+
+**Schema reference not found:**
+
+```bash
+gws schema drive.InvalidType
+```
+
+```json
+{
+  "error": "Schema or resource 'InvalidType' not found. Available schemas: [\"File\", \"FileList\", \"Permission\", ...]"
+}
+```
+
+## Piping to jq for Analysis
+
+**List all required parameters:**
+
+```bash
+gws schema drive.files.create | jq -r '.parameters | to_entries[] | select(.value.required == true) | .key'
+```
+
+**Get all property names for a request body:**
+
+```bash
+gws schema sheets.spreadsheets.create | jq -r '.requestBody.schema.properties | keys[]'
+```
+
+**Find enum values for a field:**
+
+```bash
+gws schema calendar.events.insert --resolve-refs | jq '.requestBody.schema.properties.visibility.enum'
+```
+
+## Best Practices
+
+<Tip>
+Use `gws schema` before writing a new request to understand the exact field names, types, and requirements.
+</Tip>
+
+<Tip>
+Combine with `--dry-run` to validate your payload: first introspect the schema, then test your request.
+</Tip>
+
+<Warning>
+Some deeply nested schemas can produce very large output when using `--resolve-refs`. Pipe to `jq` or `less` for easier navigation.
+</Warning>
+
+<Note>
+The schema is fetched from Google's Discovery Service in real-time, so it always reflects the current API version.
+</Note>

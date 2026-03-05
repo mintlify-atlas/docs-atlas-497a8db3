@@ -1,0 +1,206 @@
+---
+title: "Drive API"
+description: "Manage files, folders, and shared drives"
+---
+
+## Overview
+
+The Google Drive API allows you to manage files, folders, shared drives, permissions, and more. This service provides programmatic access to Google Drive's file storage and collaboration features.
+
+**API Name:** `drive`  
+**Version:** `v3`  
+**Official Documentation:** [Google Drive API Reference](https://developers.google.com/drive/api/reference/rest/v3)
+
+## Common Resources
+
+### Files
+
+Manage files and folders in Google Drive.
+
+<ParamField path="fileId" type="string" required>
+  The ID of the file or folder
+</ParamField>
+
+<ParamField path="q" type="string">
+  Search query to filter files (e.g., `"name contains 'report'"`)
+</ParamField>
+
+<ParamField path="pageSize" type="integer">
+  Maximum number of files to return per page (default: 100, max: 1000)
+</ParamField>
+
+<ParamField path="fields" type="string">
+  Specify which fields to return (e.g., `"files(id,name,mimeType)"`)
+</ParamField>
+
+### Permissions
+
+Manage sharing permissions for files and folders.
+
+<ParamField path="fileId" type="string" required>
+  The ID of the file to share
+</ParamField>
+
+<ParamField path="type" type="string" required>
+  The type of permission: `user`, `group`, `domain`, or `anyone`
+</ParamField>
+
+<ParamField path="role" type="string" required>
+  The role: `owner`, `organizer`, `fileOrganizer`, `writer`, `commenter`, or `reader`
+</ParamField>
+
+### Drives (Shared Drives)
+
+Manage shared drives for team collaboration.
+
+<ParamField path="driveId" type="string" required>
+  The ID of the shared drive
+</ParamField>
+
+## Common Methods
+
+### List Files
+
+```bash
+gws drive files list --params '{"pageSize": 10}'
+```
+
+<ResponseField name="files" type="array">
+  Array of file metadata objects
+  
+  <ResponseField name="id" type="string">
+    The file ID
+  </ResponseField>
+  
+  <ResponseField name="name" type="string">
+    The file name
+  </ResponseField>
+  
+  <ResponseField name="mimeType" type="string">
+    The MIME type of the file
+  </ResponseField>
+  
+  <ResponseField name="createdTime" type="string">
+    Creation timestamp (RFC 3339)
+  </ResponseField>
+</ResponseField>
+
+### Get File Metadata
+
+```bash
+gws drive files get --params '{"fileId": "1a2b3c4d5e"}'
+```
+
+### Create a Folder
+
+```bash
+gws drive files create --json '{
+  "name": "My Folder",
+  "mimeType": "application/vnd.google-apps.folder"
+}'
+```
+
+### Upload a File
+
+```bash
+gws drive files create \
+  --json '{"name": "report.pdf"}' \
+  --upload ./report.pdf
+```
+
+### Share a File
+
+<CodeGroup>
+```bash Share with specific user
+gws drive permissions create \
+  --params '{"fileId": "1a2b3c4d5e"}' \
+  --json '{
+    "type": "user",
+    "role": "writer",
+    "emailAddress": "colleague@example.com"
+  }'
+```
+
+```bash Share with anyone (public)
+gws drive permissions create \
+  --params '{"fileId": "1a2b3c4d5e"}' \
+  --json '{
+    "type": "anyone",
+    "role": "reader"
+  }'
+```
+</CodeGroup>
+
+### Search Files
+
+<CodeGroup>
+```bash Search by name
+gws drive files list --params '{
+  "q": "name contains \"budget\"",
+  "pageSize": 20
+}'
+```
+
+```bash Search by MIME type
+gws drive files list --params '{
+  "q": "mimeType=\"application/pdf\"",
+  "pageSize": 50
+}'
+```
+
+```bash Search in folder
+gws drive files list --params '{
+  "q": "\"1a2b3c4d5e\" in parents",
+  "pageSize": 100
+}'
+```
+</CodeGroup>
+
+## Response Format
+
+All responses are returned as JSON:
+
+```json
+{
+  "kind": "drive#fileList",
+  "files": [
+    {
+      "id": "1a2b3c4d5e",
+      "name": "Q1 Budget.xlsx",
+      "mimeType": "application/vnd.google-apps.spreadsheet",
+      "createdTime": "2026-01-15T10:30:00.000Z",
+      "modifiedTime": "2026-03-01T14:22:00.000Z"
+    }
+  ],
+  "nextPageToken": "abc123..."
+}
+```
+
+## Related Helper Commands
+
+- `+upload` - Upload files with automatic metadata (see [gws-drive-upload](https://github.com/googleworkspace/cli/blob/main/skills/gws-drive-upload/SKILL.md))
+
+## Key Resources
+
+- `files` - Create, read, update, delete files and folders
+- `permissions` - Manage sharing permissions
+- `drives` - Manage shared drives
+- `comments` - Add and manage comments
+- `revisions` - Access file revision history
+- `changes` - Track changes to files
+
+## Learn More
+
+- [Google Drive API Guide](https://developers.google.com/drive/api/guides/about-sdk)
+- [Search for files](https://developers.google.com/drive/api/guides/search-files)
+- [Share files and folders](https://developers.google.com/drive/api/guides/manage-sharing)
+- [Upload files](https://developers.google.com/drive/api/guides/manage-uploads)
+
+## Schema Inspection
+
+Before calling any method, inspect its schema:
+
+```bash
+gws schema drive.files.list
+gws schema drive.permissions.create
+```

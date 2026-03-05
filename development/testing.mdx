@@ -1,0 +1,260 @@
+---
+title: Testing
+description: Writing and running tests for the gws CLI
+---
+
+## Running Tests
+
+### Unit Tests
+
+Run the full test suite:
+
+```bash
+cargo test
+```
+
+Run tests for a specific module:
+
+```bash
+cargo test <module_name>
+```
+
+Run a specific test:
+
+```bash
+cargo test <test_name>
+```
+
+### Test Output
+
+Show output from passing tests:
+
+```bash
+cargo test -- --nocapture
+```
+
+Show all test names:
+
+```bash
+cargo test -- --list
+```
+
+## Coverage
+
+### Generate Coverage Report
+
+Use the provided script to generate an HTML coverage report:
+
+```bash
+./scripts/coverage.sh
+```
+
+This script:
+1. Installs `cargo-llvm-cov` if not already installed
+2. Runs tests with coverage instrumentation
+3. Generates an HTML report at `target/llvm-cov/html/index.html`
+4. Prints a text summary
+5. Opens the report in your browser (macOS only)
+
+### Manual Coverage
+
+Generate coverage without the script:
+
+```bash
+# Install cargo-llvm-cov
+cargo install cargo-llvm-cov
+
+# Generate HTML report
+cargo llvm-cov --all-features --workspace --html
+
+# Print summary
+cargo llvm-cov --all-features --workspace
+```
+
+## Coverage Requirements
+
+<Warning>
+  **Test Coverage Policy**: The `codecov/patch` check requires that new or modified lines are covered by tests.
+</Warning>
+
+When adding new code:
+
+1. **Extract testable functions**: Don't embed complex logic in `main` or `run` where it's hard to unit-test
+2. **Write tests for new code**: Ensure all new branches and paths are exercised
+3. **Run coverage locally**: Use `cargo test` and verify coverage before pushing
+4. **Check CI results**: The codecov check will fail if coverage drops
+
+### Best Practices
+
+- Break complex functions into smaller, testable units
+- Move business logic out of CLI entrypoints
+- Test both happy paths and error conditions
+- Write tests that can run in isolation
+
+## Writing Tests
+
+### Basic Test Structure
+
+Tests are written using Rust's built-in test framework:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_function_name() {
+        let result = my_function(input);
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_error_case() {
+        let result = my_function(invalid_input);
+        assert!(result.is_err());
+    }
+}
+```
+
+### Testing with Tempfiles
+
+Use the `tempfile` crate for tests that need file I/O:
+
+```rust
+use tempfile::TempDir;
+
+#[test]
+fn test_file_operation() {
+    let temp_dir = TempDir::new().unwrap();
+    let file_path = temp_dir.path().join("test.txt");
+    
+    // Canonicalize paths to handle macOS /var → /private/var symlinks
+    let canonical_path = temp_dir.path().canonicalize().unwrap();
+    
+    // Test file operations...
+}
+```
+
+<Note>
+  Tempdir paths should be canonicalized before use to handle macOS `/var` → `/private/var` symlinks.
+</Note>
+
+### Serial Tests
+
+Tests that modify process state (like changing the current directory) must use `#[serial]`:
+
+```rust
+use serial_test::serial;
+
+#[test]
+#[serial]
+fn test_changes_cwd() {
+    // Test that modifies the current working directory
+    std::env::set_current_dir("/tmp").unwrap();
+    // ...
+}
+```
+
+This ensures these tests don't run in parallel and interfere with each other.
+
+## Input Validation Tests
+
+<Warning>
+  All validation logic must include **both happy-path and error-path tests**.
+</Warning>
+
+When testing input validation:
+
+### Path Safety Tests
+
+```rust
+#[test]
+fn test_validate_safe_path_rejects_traversal() {
+    let result = validate_safe_output_dir("../../.ssh");
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_validate_safe_path_allows_relative() {
+    let result = validate_safe_output_dir("output");
+    assert!(result.is_ok());
+}
+```
+
+### URL Encoding Tests
+
+```rust
+#[test]
+fn test_encode_path_segment() {
+    assert_eq!(
+        encode_path_segment("file/name.txt"),
+        "file%2Fname.txt"
+    );
+}
+```
+
+### Resource Name Tests
+
+```rust
+#[test]
+fn test_validate_resource_name_rejects_traversal() {
+    let result = validate_resource_name("../malicious");
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_validate_resource_name_rejects_query_params() {
+    let result = validate_resource_name("project?extra=param");
+    assert!(result.is_err());
+}
+```
+
+## Testing Checklist
+
+When adding a new feature or fixing a bug:
+
+- [ ] Write tests for the happy path
+- [ ] Write tests for error cases
+- [ ] Test input validation (if applicable)
+  - [ ] Path traversal rejection (`../../.ssh`)
+  - [ ] Control character rejection
+  - [ ] Resource name validation
+  - [ ] URL encoding correctness
+- [ ] Use `#[serial]` for tests that modify process state
+- [ ] Canonicalize temp paths for cross-platform compatibility
+- [ ] Run `cargo test` locally
+- [ ] Run `cargo clippy -- -D warnings`
+- [ ] Check coverage with `./scripts/coverage.sh`
+
+## CI Requirements
+
+The CI pipeline runs:
+
+1. **Unit tests**: `cargo test`
+2. **Linting**: `cargo clippy -- -D warnings`
+3. **Coverage check**: codecov/patch validates new code is tested
+4. **Changeset check**: Ensures PR includes a changeset file
+
+All checks must pass before a PR can be merged.
+
+## Integration Testing
+
+The project includes smoke tests that run against live APIs:
+
+```bash
+# Set up credentials for smoke tests
+export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=test-creds.json
+
+# Run smoke tests (requires valid credentials)
+cargo test --test smoketest
+```
+
+<Warning>
+  Smoke tests require valid Google Workspace credentials and make real API calls.
+</Warning>
+
+## Next Steps
+
+- Learn about contribution requirements: [Contributing](/development/contributing)
+- Understand the architecture: [Architecture](/development/architecture)
+- Set up your build environment: [Building](/development/building)

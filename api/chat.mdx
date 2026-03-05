@@ -1,0 +1,268 @@
+---
+title: "Chat API"
+description: "Manage Chat spaces and messages"
+---
+
+## Overview
+
+The Google Chat API allows you to create Chat apps, send messages, manage spaces, and interact with Google Chat programmatically.
+
+**API Name:** `chat`  
+**Version:** `v1`  
+**Official Documentation:** [Chat API Reference](https://developers.google.com/chat/api/reference/rest)
+
+## Common Resources
+
+### Spaces
+
+Manage Chat spaces (rooms and direct messages).
+
+<ParamField path="name" type="string" required>
+  The space resource name (e.g., `spaces/AAAAxxxxx`)
+</ParamField>
+
+<ParamField path="displayName" type="string">
+  The human-readable name of the space
+</ParamField>
+
+<ParamField path="spaceType" type="string">
+  The type: `SPACE`, `GROUP_CHAT`, or `DIRECT_MESSAGE`
+</ParamField>
+
+### Messages
+
+Send and manage messages in spaces.
+
+<ParamField path="parent" type="string" required>
+  The space where to send the message (e.g., `spaces/AAAAxxxxx`)
+</ParamField>
+
+<ParamField path="text" type="string">
+  The message text content
+</ParamField>
+
+<ParamField path="thread" type="object">
+  Thread information for replies
+</ParamField>
+
+## Common Methods
+
+### List Spaces
+
+```bash
+gws chat spaces list --params '{
+  "pageSize": 100
+}'
+```
+
+<ResponseField name="spaces" type="array">
+  Array of space objects
+  
+  <ResponseField name="name" type="string">
+    The space resource name
+  </ResponseField>
+  
+  <ResponseField name="displayName" type="string">
+    The space display name
+  </ResponseField>
+  
+  <ResponseField name="spaceType" type="string">
+    The space type
+  </ResponseField>
+</ResponseField>
+
+### Get Space
+
+```bash
+gws chat spaces get --params '{
+  "name": "spaces/AAAAxxxxx"
+}'
+```
+
+### Create Space
+
+```bash
+gws chat spaces create --json '{
+  "displayName": "Project Alpha",
+  "spaceType": "SPACE"
+}'
+```
+
+### Send Message
+
+```bash
+gws chat spaces messages create \
+  --params '{"parent": "spaces/AAAAxxxxx"}' \
+  --json '{
+    "text": "Deploy completed successfully! ✅"
+  }'
+```
+
+### Get Message
+
+```bash
+gws chat spaces messages get --params '{
+  "name": "spaces/AAAAxxxxx/messages/123456"
+}'
+```
+
+### Update Message
+
+```bash
+gws chat spaces messages patch \
+  --params '{
+    "name": "spaces/AAAAxxxxx/messages/123456",
+    "updateMask": "text"
+  }' \
+  --json '{
+    "text": "Updated message content"
+  }'
+```
+
+### Delete Message
+
+```bash
+gws chat spaces messages delete --params '{
+  "name": "spaces/AAAAxxxxx/messages/123456"
+}'
+```
+
+## Message Examples
+
+<CodeGroup>
+```bash Simple text message
+gws chat spaces messages create \
+  --params '{"parent": "spaces/AAAAxxxxx"}' \
+  --json '{
+    "text": "Hello, team!"
+  }'
+```
+
+```bash Message with card
+gws chat spaces messages create \
+  --params '{"parent": "spaces/AAAAxxxxx"}' \
+  --json '{
+    "cardsV2": [{
+      "cardId": "card-1",
+      "card": {
+        "header": {"title": "Build Status"},
+        "sections": [{
+          "widgets": [{
+            "textParagraph": {"text": "Build #42 succeeded"}
+          }]
+        }]
+      }
+    }]
+  }'
+```
+
+```bash Reply to thread
+gws chat spaces messages create \
+  --params '{"parent": "spaces/AAAAxxxxx"}' \
+  --json '{
+    "text": "Thanks for the update!",
+    "thread": {"name": "spaces/AAAAxxxxx/threads/654321"}
+  }'
+```
+
+```bash Message with attachment
+gws chat media upload \
+  --upload ./report.pdf \
+  --params '{"parent": "spaces/AAAAxxxxx"}'
+```
+</CodeGroup>
+
+## Response Format
+
+List spaces response:
+
+```json
+{
+  "spaces": [
+    {
+      "name": "spaces/AAAAxxxxx",
+      "displayName": "Project Alpha",
+      "spaceType": "SPACE",
+      "createTime": "2026-01-15T10:00:00Z"
+    }
+  ],
+  "nextPageToken": "xyz789..."
+}
+```
+
+Message response:
+
+```json
+{
+  "name": "spaces/AAAAxxxxx/messages/123456",
+  "sender": {
+    "name": "users/12345",
+    "displayName": "Alice Smith",
+    "type": "HUMAN"
+  },
+  "createTime": "2026-03-05T14:30:00Z",
+  "text": "Deploy completed successfully!",
+  "thread": {
+    "name": "spaces/AAAAxxxxx/threads/654321"
+  }
+}
+```
+
+## Related Helper Commands
+
+- `+send` - Send a message to a space
+
+## Key Resources
+
+- `spaces` - Create and manage Chat spaces
+- `spaces.messages` - Send and manage messages
+- `spaces.members` - Manage space memberships
+- `customEmojis` - Manage custom emojis
+- `media` - Upload and download media
+
+## Space Management
+
+### List Members
+
+```bash
+gws chat spaces members list --params '{
+  "parent": "spaces/AAAAxxxxx"
+}'
+```
+
+### Add Member
+
+```bash
+gws chat spaces members create \
+  --params '{"parent": "spaces/AAAAxxxxx"}' \
+  --json '{
+    "member": {
+      "name": "users/12345",
+      "type": "HUMAN"
+    }
+  }'
+```
+
+### Find Direct Message
+
+```bash
+gws chat spaces findDirectMessage --params '{
+  "name": "users/12345"
+}'
+```
+
+## Learn More
+
+- [Chat API Guide](https://developers.google.com/chat/api/guides/overview)
+- [Create Chat apps](https://developers.google.com/chat/api/guides/message-formats/cards)
+- [Send messages](https://developers.google.com/chat/api/guides/v1/messages/create)
+- [Manage spaces](https://developers.google.com/chat/api/guides/v1/spaces)
+
+## Schema Inspection
+
+Before calling any method, inspect its schema:
+
+```bash
+gws schema chat.spaces.list
+gws schema chat.spaces.messages.create
+```

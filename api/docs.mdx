@@ -1,0 +1,268 @@
+---
+title: "Docs API"
+description: "Read and write Google Docs"
+---
+
+## Overview
+
+The Google Docs API allows you to create, read, and update Google Docs documents programmatically.
+
+**API Name:** `docs`  
+**Version:** `v1`  
+**Official Documentation:** [Docs API Reference](https://developers.google.com/docs/api/reference/rest)
+
+## Common Resources
+
+### Documents
+
+Create and manage Google Docs.
+
+<ParamField path="documentId" type="string" required>
+  The document ID (found in the URL)
+</ParamField>
+
+<ParamField path="title" type="string">
+  The document title
+</ParamField>
+
+## Common Methods
+
+### Create Document
+
+```bash
+gws docs documents create --json '{
+  "title": "Project Proposal"
+}'
+```
+
+<ResponseField name="documentId" type="string">
+  The ID of the created document
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  The document title
+</ResponseField>
+
+### Get Document
+
+```bash
+gws docs documents get --params '{
+  "documentId": "1a2b3c4d5e6f7g8h9i"
+}'
+```
+
+<ResponseField name="documentId" type="string">
+  The document ID
+</ResponseField>
+
+<ResponseField name="title" type="string">
+  The document title
+</ResponseField>
+
+<ResponseField name="body" type="object">
+  The document body containing content
+</ResponseField>
+
+### Batch Update
+
+```bash
+gws docs documents batchUpdate \
+  --params '{"documentId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [
+      {
+        "insertText": {
+          "location": {"index": 1},
+          "text": "Hello, World!\n"
+        }
+      }
+    ]
+  }'
+```
+
+## Document Operations
+
+<CodeGroup>
+```bash Insert text
+gws docs documents batchUpdate \
+  --params '{"documentId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "insertText": {
+        "location": {"index": 1},
+        "text": "This is a new paragraph.\n"
+      }
+    }]
+  }'
+```
+
+```bash Format text
+gws docs documents batchUpdate \
+  --params '{"documentId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "updateTextStyle": {
+        "range": {"startIndex": 1, "endIndex": 10},
+        "textStyle": {"bold": true},
+        "fields": "bold"
+      }
+    }]
+  }'
+```
+
+```bash Insert table
+gws docs documents batchUpdate \
+  --params '{"documentId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "insertTable": {
+        "rows": 3,
+        "columns": 2,
+        "location": {"index": 1}
+      }
+    }]
+  }'
+```
+
+```bash Insert image
+gws docs documents batchUpdate \
+  --params '{"documentId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "insertInlineImage": {
+        "uri": "https://example.com/image.png",
+        "location": {"index": 1}
+      }
+    }]
+  }'
+```
+</CodeGroup>
+
+## Response Format
+
+Create document response:
+
+```json
+{
+  "documentId": "1a2b3c4d5e6f7g8h9i",
+  "title": "Project Proposal",
+  "body": {
+    "content": [
+      {
+        "endIndex": 1,
+        "sectionBreak": {
+          "sectionStyle": {}
+        }
+      }
+    ]
+  },
+  "revisionId": "abc123",
+  "documentStyle": {}
+}
+```
+
+Get document response:
+
+```json
+{
+  "documentId": "1a2b3c4d5e6f7g8h9i",
+  "title": "Project Proposal",
+  "body": {
+    "content": [
+      {
+        "startIndex": 1,
+        "endIndex": 20,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 1,
+              "endIndex": 20,
+              "textRun": {
+                "content": "Hello, World!\n"
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+
+## Related Helper Commands
+
+- `+write` - Append text to a document
+
+## Key Resources
+
+- `documents` - Create, read, and update documents
+
+## Common Request Types
+
+The `batchUpdate` method accepts various request types:
+
+- `insertText` - Insert text at a location
+- `deleteContentRange` - Delete a range of content
+- `updateTextStyle` - Format text (bold, italic, color, etc.)
+- `updateParagraphStyle` - Change paragraph formatting
+- `insertTable` - Insert a table
+- `insertInlineImage` - Insert an image
+- `createNamedRange` - Create a named range
+- `replaceAllText` - Find and replace text
+
+## Advanced Examples
+
+### Replace All Text
+
+```bash
+gws docs documents batchUpdate \
+  --params '{"documentId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [{
+      "replaceAllText": {
+        "containsText": {"text": "{{name}}"},
+        "replaceText": "Alice Smith"
+      }
+    }]
+  }'
+```
+
+### Create Heading
+
+```bash
+gws docs documents batchUpdate \
+  --params '{"documentId": "1a2b3c4d5e6f7g8h9i"}' \
+  --json '{
+    "requests": [
+      {
+        "insertText": {
+          "location": {"index": 1},
+          "text": "Introduction\n"
+        }
+      },
+      {
+        "updateParagraphStyle": {
+          "range": {"startIndex": 1, "endIndex": 14},
+          "paragraphStyle": {"namedStyleType": "HEADING_1"},
+          "fields": "namedStyleType"
+        }
+      }
+    ]
+  }'
+```
+
+## Learn More
+
+- [Docs API Guide](https://developers.google.com/docs/api/how-tos/overview)
+- [Document structure](https://developers.google.com/docs/api/concepts/structure)
+- [Merging documents](https://developers.google.com/docs/api/how-tos/merge)
+- [Text formatting](https://developers.google.com/docs/api/how-tos/format-text)
+
+## Schema Inspection
+
+Before calling any method, inspect its schema:
+
+```bash
+gws schema docs.documents.create
+gws schema docs.documents.batchUpdate
+```

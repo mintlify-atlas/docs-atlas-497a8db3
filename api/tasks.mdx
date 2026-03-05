@@ -1,0 +1,275 @@
+---
+title: "Tasks API"
+description: "Manage task lists and tasks"
+---
+
+## Overview
+
+The Google Tasks API allows you to manage task lists and individual tasks programmatically.
+
+**API Name:** `tasks`  
+**Version:** `v1`  
+**Official Documentation:** [Tasks API Reference](https://developers.google.com/tasks/reference/rest)
+
+## Common Resources
+
+### Task Lists
+
+Manage task lists (containers for tasks).
+
+<ParamField path="tasklist" type="string" required>
+  The task list ID or `@default` for the default list
+</ParamField>
+
+<ParamField path="title" type="string">
+  The task list title
+</ParamField>
+
+### Tasks
+
+Manage individual tasks.
+
+<ParamField path="tasklist" type="string" required>
+  The task list ID
+</ParamField>
+
+<ParamField path="task" type="string">
+  The task ID
+</ParamField>
+
+<ParamField path="title" type="string">
+  The task title
+</ParamField>
+
+<ParamField path="due" type="string">
+  Due date (RFC 3339 timestamp)
+</ParamField>
+
+## Common Methods
+
+### List Task Lists
+
+```bash
+gws tasks tasklists list
+```
+
+<ResponseField name="items" type="array">
+  Array of task list objects
+  
+  <ResponseField name="id" type="string">
+    The task list ID
+  </ResponseField>
+  
+  <ResponseField name="title" type="string">
+    The task list title
+  </ResponseField>
+  
+  <ResponseField name="updated" type="string">
+    Last modification time
+  </ResponseField>
+</ResponseField>
+
+### Get Task List
+
+```bash
+gws tasks tasklists get --params '{
+  "tasklist": "@default"
+}'
+```
+
+### Create Task List
+
+```bash
+gws tasks tasklists insert --json '{
+  "title": "Work Tasks"
+}'
+```
+
+### List Tasks
+
+```bash
+gws tasks tasks list --params '{
+  "tasklist": "@default",
+  "showCompleted": false
+}'
+```
+
+<ResponseField name="items" type="array">
+  Array of task objects
+  
+  <ResponseField name="id" type="string">
+    The task ID
+  </ResponseField>
+  
+  <ResponseField name="title" type="string">
+    The task title
+  </ResponseField>
+  
+  <ResponseField name="status" type="string">
+    Task status: `needsAction` or `completed`
+  </ResponseField>
+  
+  <ResponseField name="due" type="string">
+    Due date (RFC 3339 timestamp)
+  </ResponseField>
+</ResponseField>
+
+### Create Task
+
+```bash
+gws tasks tasks insert \
+  --params '{"tasklist": "@default"}' \
+  --json '{
+    "title": "Review pull request",
+    "notes": "Check PR #123 for the API changes",
+    "due": "2026-03-10T00:00:00.000Z"
+  }'
+```
+
+### Get Task
+
+```bash
+gws tasks tasks get --params '{
+  "tasklist": "@default",
+  "task": "task123"
+}'
+```
+
+### Update Task
+
+```bash
+gws tasks tasks update \
+  --params '{"tasklist": "@default", "task": "task123"}' \
+  --json '{
+    "title": "Updated task title",
+    "status": "completed"
+  }'
+```
+
+### Delete Task
+
+```bash
+gws tasks tasks delete --params '{
+  "tasklist": "@default",
+  "task": "task123"
+}'
+```
+
+## Task Operations
+
+<CodeGroup>
+```bash Mark task complete
+gws tasks tasks update \
+  --params '{"tasklist": "@default", "task": "task123"}' \
+  --json '{"status": "completed"}'
+```
+
+```bash Set due date
+gws tasks tasks update \
+  --params '{"tasklist": "@default", "task": "task123"}' \
+  --json '{"due": "2026-03-15T00:00:00.000Z"}'
+```
+
+```bash Move task
+gws tasks tasks move --params '{
+  "tasklist": "@default",
+  "task": "task123",
+  "parent": "parentTask456"
+}'
+```
+
+```bash Clear completed tasks
+gws tasks tasks clear --params '{
+  "tasklist": "@default"
+}'
+```
+</CodeGroup>
+
+## Response Format
+
+Task list response:
+
+```json
+{
+  "items": [
+    {
+      "id": "MDAxNjM4NTQ2NzY4NTQ2NzY4NTQ",
+      "title": "My Tasks",
+      "updated": "2026-03-05T10:30:00.000Z",
+      "selfLink": "https://www.googleapis.com/tasks/v1/users/@me/lists/MDAxNjM4NTQ2NzY4NTQ2NzY4NTQ"
+    }
+  ]
+}
+```
+
+Task response:
+
+```json
+{
+  "id": "task123",
+  "title": "Review pull request",
+  "notes": "Check PR #123 for the API changes",
+  "status": "needsAction",
+  "due": "2026-03-10T00:00:00.000Z",
+  "updated": "2026-03-05T14:20:00.000Z",
+  "selfLink": "https://www.googleapis.com/tasks/v1/lists/@default/tasks/task123"
+}
+```
+
+## Key Resources
+
+- `tasklists` - Manage task lists
+- `tasks` - Manage tasks within lists
+
+## Task Hierarchy
+
+Tasks can be organized hierarchically with parent-child relationships:
+
+```bash
+# Create parent task
+gws tasks tasks insert \
+  --params '{"tasklist": "@default"}' \
+  --json '{"title": "Project Launch"}'
+
+# Create subtask
+gws tasks tasks insert \
+  --params '{"tasklist": "@default", "parent": "parentTaskId"}' \
+  --json '{"title": "Write documentation"}'
+```
+
+## Filtering Tasks
+
+```bash
+# Show only incomplete tasks
+gws tasks tasks list --params '{
+  "tasklist": "@default",
+  "showCompleted": false
+}'
+
+# Show tasks updated after a date
+gws tasks tasks list --params '{
+  "tasklist": "@default",
+  "updatedMin": "2026-03-01T00:00:00.000Z"
+}'
+
+# Show tasks due before a date
+gws tasks tasks list --params '{
+  "tasklist": "@default",
+  "dueMax": "2026-03-31T23:59:59.000Z"
+}'
+```
+
+## Learn More
+
+- [Tasks API Guide](https://developers.google.com/tasks/overview)
+- [Managing tasks](https://developers.google.com/tasks/performance)
+- [Task lists](https://developers.google.com/tasks/reference/rest/v1/tasklists)
+
+## Schema Inspection
+
+Before calling any method, inspect its schema:
+
+```bash
+gws schema tasks.tasklists.list
+gws schema tasks.tasks.insert
+```

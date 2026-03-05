@@ -1,0 +1,451 @@
+---
+title: Output Format
+description: All output is structured JSON by default, with support for tables, YAML, CSV, and NDJSON for pagination
+---
+
+## Overview
+
+The `gws` CLI is designed for both **human** and **machine** consumption. Every response — success, error, or download metadata — is structured JSON by default. This makes it trivial to pipe output to `jq`, parse in scripts, or process in AI agent workflows.
+
+<Note>
+  Unlike traditional CLIs that mix human-readable text with machine-parseable output, `gws` guarantees **all stdout is valid JSON** (or NDJSON for paginated responses).
+</Note>
+
+## Default: Pretty-Printed JSON
+
+Without any flags, API responses are printed as pretty-printed JSON:
+
+```bash
+gws drive files list --params '{"pageSize": 2}'
+```
+
+Output:
+
+```json
+{
+  "kind": "drive#fileList",
+  "files": [
+    {
+      "kind": "drive#file",
+      "id": "1a2b3c4d5e6f",
+      "name": "My Document",
+      "mimeType": "application/vnd.google-apps.document"
+    },
+    {
+      "kind": "drive#file",
+      "id": "7g8h9i0j1k2l",
+      "name": "Spreadsheet Q1 2025",
+      "mimeType": "application/vnd.google-apps.spreadsheet"
+    }
+  ],
+  "nextPageToken": "CAESBQgBIAEoAQ"
+}
+```
+
+## Alternative Formats
+
+Use the `--format` flag to change output formatting:
+
+```bash
+gws drive files list --params '{"pageSize": 2}' --format table
+gws drive files list --params '{"pageSize": 2}' --format yaml
+gws drive files list --params '{"pageSize": 2}' --format csv
+```
+
+### Table Format
+
+```
+id              name                   mimeType
+──────────────  ─────────────────────  ────────────────────────────────────
+1a2b3c4d5e6f    My Document            application/vnd.google-apps.document
+7g8h9i0j1k2l    Spreadsheet Q1 2025    application/vnd.google-apps.spreadsheet
+```
+
+**Features**:
+- Automatically extracts array data from list responses
+- Nested objects are flattened into dot-notation columns (e.g., `owner.displayName`)
+- Columns are auto-sized (capped at 60 chars)
+- Multi-byte UTF-8 characters are handled safely
+
+Implementation in `src/formatter.rs:163-271`:
+
+```rust
+fn format_array_as_table(arr: &[Value], emit_header: bool) -> String {
+    if arr.is_empty() {
+        return "(empty)\n".to_string();
+    }
+
+    // Flatten each row so nested objects become dot-notation columns.
+    let flat_rows: Vec<Vec<(String, String)>> = arr
+        .iter()
+        .map(|item| match item {
+            Value::Object(obj) => flatten_object(obj, ""),
+            _ => vec![(String::new(), value_to_cell(item))],
+        })
+        .collect();
+
+    // Collect all unique column names (preserving insertion order).
+    let mut columns: Vec<String> = Vec::new();
+    for row in &flat_rows {
+        for (key, _) in row {
+            if !columns.contains(key) {
+                columns.push(key.clone());
+            }
+        }
+    }
+    // ... calculate widths, render table
+}
+```
+
+### YAML Format
+
+```yaml
+kind: "drive#fileList"
+files:
+  - kind: "drive#file"
+    id: "1a2b3c4d5e6f"
+    name: "My Document"
+    mimeType: "application/vnd.google-apps.document"
+  - kind: "drive#file"
+    id: "7g8h9i0j1k2l"
+    name: "Spreadsheet Q1 2025"
+    mimeType: "application/vnd.google-apps.spreadsheet"
+nextPageToken: "CAESBQgBIAEoAQ"
+```
+
+**Features**:
+- Single-line strings are always double-quoted to avoid YAML parser ambiguity (`#` comments, `:` mappings)
+- Multi-line strings use block scalar (`|`) syntax
+- Nested structures preserve hierarchy
+
+### CSV Format
+
+```csv
+id,name,mimeType
+1a2b3c4d5e6f,My Document,application/vnd.google-apps.document
+7g8h9i0j1k2l,Spreadsheet Q1 2025,application/vnd.google-apps.spreadsheet
+```
+
+**Features**:
+- Automatically extracts array data from list responses
+- Column order preserved based on first appearance
+- Values containing `,`, `"`, or newlines are properly escaped
+
+## Error Format
+
+All errors are output as structured JSON with consistent fields:
+
+```json
+{
+  "error": {
+    "code": 403,
+    "message": "The user does not have sufficient permissions for file 1a2b3c4d5e6f.",
+    "reason": "insufficientPermissions"
+  }
+}
+```
+
+Error types and their `reason` codes:
+
+| Error Type        | Code | Reason                | Example                                      |
+| ----------------- | ---- | --------------------- | -------------------------------------------- |
+| Validation        | 400  | `validationError`     | Missing required parameter                   |
+| Authentication    | 401  | `authError`           | No credentials provided                      |
+| API Error         | Varies | `<api-specific>`     | `insufficientPermissions`, `notFound`, etc.  |
+| Discovery Error   | 500  | `discoveryError`      | Failed to fetch Discovery Document           |
+| Internal Error    | 500  | `internalError`       | Unexpected error                             |
+
+Implementation in `src/error.rs:42-93`:
+
+```rust
+impl GwsError {
+    pub fn to_json(&self) -> serde_json::Value {
+        match self {
+            GwsError::Api {
+                code,
+                message,
+                reason,
+                enable_url,
+            } => {
+                let mut error_obj = json!({
+                    "code": code,
+                    "message": message,
+                    "reason": reason,
+                });
+                if let Some(url) = enable_url {
+                    error_obj["enable_url"] = json!(url);
+                }
+                json!({ "error": error_obj })
+            }
+            GwsError::Validation(msg) => json!({
+                "error": {
+                    "code": 400,
+                    "message": msg,
+                    "reason": "validationError",
+                }
+            }),
+            // ... other error types
+        }
+    }
+}
+```
+
+### `accessNotConfigured` Errors
+
+When a required API is not enabled for your GCP project, the error includes a direct link to enable it:
+
+```json
+{
+  "error": {
+    "code": 403,
+    "message": "Gmail API has not been used in project 549352339482 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/gmail.googleapis.com/overview?project=549352339482 then retry.",
+    "reason": "accessNotConfigured",
+    "enable_url": "https://console.developers.google.com/apis/api/gmail.googleapis.com/overview?project=549352339482"
+  }
+}
+```
+
+A human-readable hint is also printed to **stderr** (not stdout, so it doesn't pollute JSON parsing):
+
+```
+💡 API not enabled for your GCP project.
+   Enable it at: https://console.developers.google.com/apis/api/gmail.googleapis.com/overview?project=549352339482
+   After enabling, wait a few seconds and retry your command.
+```
+
+## Piping to `jq`
+
+`jq` is the standard tool for filtering JSON output:
+
+```bash
+# Extract just file names
+gws drive files list --params '{"pageSize": 10}' | jq -r '.files[].name'
+
+# Filter files by MIME type
+gws drive files list --params '{"pageSize": 100}' \
+  | jq '.files[] | select(.mimeType == "application/pdf")'
+
+# Count total files
+gws drive files list --params '{"pageSize": 1000}' | jq '.files | length'
+
+# Extract specific fields into CSV
+gws drive files list --params '{"pageSize": 50}' \
+  | jq -r '.files[] | [.id, .name, .mimeType] | @csv'
+```
+
+## Pagination and NDJSON
+
+Many Google Workspace APIs return paginated results with a `nextPageToken`. The CLI supports **auto-pagination** with the `--page-all` flag:
+
+```bash
+gws drive files list --params '{"pageSize": 100}' --page-all
+```
+
+With `--page-all`, output is **NDJSON** (newline-delimited JSON) — one JSON object per line:
+
+```json
+{"files":[{"id":"1","name":"file1.pdf"}],"nextPageToken":"token1"}
+{"files":[{"id":"2","name":"file2.pdf"}],"nextPageToken":"token2"}
+{"files":[{"id":"3","name":"file3.pdf"}]}
+```
+
+This format is:
+- **Streamable**: You can process each line as it arrives
+- **Memory-efficient**: No need to load the entire result set into memory
+- **`jq`-compatible**: `jq -r '.files[].name'` works on NDJSON
+
+Implementation in `src/formatter.rs:79-88`:
+
+```rust
+pub fn format_value_paginated(value: &Value, format: &OutputFormat, is_first_page: bool) -> String {
+    match format {
+        OutputFormat::Json => serde_json::to_string(value).unwrap_or_default(),
+        OutputFormat::Csv => format_csv_page(value, is_first_page),
+        OutputFormat::Table => format_table_page(value, is_first_page),
+        OutputFormat::Yaml => format!("---\n{}", format_yaml(value)),
+    }
+}
+```
+
+### Pagination Options
+
+| Flag                | Description                                    | Default |
+| ------------------- | ---------------------------------------------- | ------- |
+| `--page-all`        | Auto-paginate, one JSON line per page (NDJSON) | off     |
+| `--page-limit <N>`  | Max pages to fetch                             | 10      |
+| `--page-delay <MS>` | Delay between pages (in milliseconds)          | 100 ms  |
+
+Example:
+
+```bash
+# Fetch up to 50 pages with 200ms delay between each
+gws drive files list --params '{"pageSize": 100}' \
+  --page-all --page-limit 50 --page-delay 200
+```
+
+### Extracting Data from NDJSON
+
+Process each page's file array:
+
+```bash
+gws drive files list --params '{"pageSize": 100}' --page-all \
+  | jq -r '.files[].name'
+```
+
+Or concatenate all pages into a single array:
+
+```bash
+gws drive files list --params '{"pageSize": 100}' --page-all \
+  | jq -s '[.[].files[]]'
+```
+
+## Binary Downloads
+
+When downloading file content (e.g., `gws drive files get --params '{"fileId":"...", "alt":"media"}'`), the CLI:
+
+1. Detects the `Content-Type` header
+2. Streams the response to a file (default: `download.<ext>`)
+3. Outputs **JSON metadata** about the download:
+
+```json
+{
+  "status": "success",
+  "saved_file": "download.pdf",
+  "mimeType": "application/pdf",
+  "bytes": 245829
+}
+```
+
+You can specify the output path with `--output`:
+
+```bash
+gws drive files get --params '{"fileId":"abc123","alt":"media"}' \
+  --output report.pdf
+```
+
+Implementation in `src/executor.rs:295-341`:
+
+```rust
+async fn handle_binary_response(
+    response: reqwest::Response,
+    content_type: &str,
+    output_path: Option<&str>,
+    output_format: &crate::formatter::OutputFormat,
+    capture_output: bool,
+) -> Result<Option<Value>, GwsError> {
+    let file_path = if let Some(p) = output_path {
+        PathBuf::from(p)
+    } else {
+        let ext = mime_to_extension(content_type);
+        PathBuf::from(format!("download.{ext}"))
+    };
+
+    let mut file = tokio::fs::File::create(&file_path)
+        .await
+        .context("Failed to create output file")?;
+
+    let mut stream = response.bytes_stream();
+    let mut total_bytes: u64 = 0;
+
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.context("Failed to read response chunk")?;
+        file.write_all(&chunk)
+            .await
+            .context("Failed to write to file")?;
+        total_bytes += chunk.len() as u64;
+    }
+
+    file.flush().await.context("Failed to flush file")?;
+
+    let result = json!({
+        "status": "success",
+        "saved_file": file_path.display().to_string(),
+        "mimeType": content_type,
+        "bytes": total_bytes,
+    });
+
+    if capture_output {
+        return Ok(Some(result));
+    }
+
+    println!("{}", crate::formatter::format_value(&result, output_format));
+
+    Ok(None)
+}
+```
+
+## CSV and Table Pagination
+
+When using `--page-all` with `--format csv` or `--format table`, the CLI only emits **column headers on the first page**. Subsequent pages contain only data rows, so the combined output is machine-parseable:
+
+```bash
+gws drive files list --params '{"pageSize": 2}' --page-all --format csv
+```
+
+Output:
+
+```csv
+id,name,mimeType
+1a2b3c4d5e6f,My Document,application/vnd.google-apps.document
+7g8h9i0j1k2l,Spreadsheet Q1 2025,application/vnd.google-apps.spreadsheet
+3m4n5o6p7q8r,Presentation Deck,application/vnd.google-apps.presentation
+9s0t1u2v3w4x,Budget 2025,application/vnd.google-apps.spreadsheet
+```
+
+No duplicate header rows between pages.
+
+## Use Cases
+
+### Scripting
+
+```bash
+#!/bin/bash
+for file_id in $(gws drive files list --params '{"q":"mimeType='application/pdf'"}' \
+  | jq -r '.files[].id'); do
+  echo "Processing $file_id"
+  gws drive files get --params "{\"fileId\":\"$file_id\",\"alt\":\"media\"}" \
+    --output "pdfs/$file_id.pdf"
+done
+```
+
+### AI Agents
+
+AI agents can reliably parse all output without regex hacks or brittle text parsing:
+
+```python
+import subprocess
+import json
+
+result = subprocess.run(
+    ["gws", "drive", "files", "list", "--params", '{"pageSize": 10}'],
+    capture_output=True,
+    text=True
+)
+data = json.loads(result.stdout)
+files = data["files"]
+for f in files:
+    print(f"File: {f['name']} (ID: {f['id']})")
+```
+
+### Monitoring
+
+Check if a specific file exists (exit code 0 = success, 1 = error):
+
+```bash
+if gws drive files get --params '{"fileId":"abc123"}' > /dev/null 2>&1; then
+  echo "File exists"
+else
+  echo "File not found or inaccessible"
+fi
+```
+
+## Related Concepts
+
+<CardGroup cols={2}>
+  <Card title="Dynamic Discovery" icon="puzzle" href="/concepts/dynamic-discovery">
+    How the CLI generates commands at runtime
+  </Card>
+  <Card title="Pagination" icon="list" href="/advanced/pagination">
+    Deep dive into auto-pagination strategies
+  </Card>
+</CardGroup>

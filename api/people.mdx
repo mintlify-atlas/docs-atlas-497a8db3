@@ -1,0 +1,317 @@
+---
+title: "People API"
+description: "Manage contacts and profiles"
+---
+
+## Overview
+
+The People API allows you to manage Google Contacts, read user profile information, and access directory information.
+
+**API Name:** `people`  
+**Version:** `v1`  
+**Official Documentation:** [People API Reference](https://developers.google.com/people/api/rest)
+
+## Common Resources
+
+### People
+
+Access person information and contacts.
+
+<ParamField path="resourceName" type="string" required>
+  The person resource name (e.g., `people/c1234567890` or `people/me`)
+</ParamField>
+
+<ParamField path="personFields" type="string" required>
+  Comma-separated list of fields to return (e.g., `names,emailAddresses,phoneNumbers`)
+</ParamField>
+
+### Contact Groups
+
+Manage contact groups (labels).
+
+<ParamField path="resourceName" type="string">
+  The contact group resource name
+</ParamField>
+
+<ParamField path="name" type="string">
+  The contact group name
+</ParamField>
+
+## Common Methods
+
+### Get Person
+
+```bash
+gws people people get --params '{
+  "resourceName": "people/me",
+  "personFields": "names,emailAddresses,phoneNumbers"
+}'
+```
+
+<ResponseField name="resourceName" type="string">
+  The person's resource name
+</ResponseField>
+
+<ResponseField name="names" type="array">
+  Array of name objects
+  
+  <ResponseField name="displayName" type="string">
+    Full name
+  </ResponseField>
+</ResponseField>
+
+<ResponseField name="emailAddresses" type="array">
+  Array of email address objects
+</ResponseField>
+
+### Search Contacts
+
+```bash
+gws people people searchContacts --params '{
+  "query": "alice",
+  "readMask": "names,emailAddresses"
+}'
+```
+
+### List Contacts
+
+```bash
+gws people people connections list --params '{
+  "resourceName": "people/me",
+  "personFields": "names,emailAddresses,phoneNumbers",
+  "pageSize": 100
+}'
+```
+
+<ResponseField name="connections" type="array">
+  Array of person objects
+  
+  <ResponseField name="resourceName" type="string">
+    The person's resource name
+  </ResponseField>
+  
+  <ResponseField name="names" type="array">
+    Person's names
+  </ResponseField>
+  
+  <ResponseField name="emailAddresses" type="array">
+    Person's email addresses
+  </ResponseField>
+</ResponseField>
+
+### Create Contact
+
+```bash
+gws people people createContact --json '{
+  "names": [{
+    "givenName": "Alice",
+    "familyName": "Smith"
+  }],
+  "emailAddresses": [{
+    "value": "alice@example.com"
+  }],
+  "phoneNumbers": [{
+    "value": "+1-555-123-4567",
+    "type": "work"
+  }]
+}'
+```
+
+### Update Contact
+
+```bash
+gws people people updateContact \
+  --params '{
+    "resourceName": "people/c1234567890",
+    "updatePersonFields": "phoneNumbers"
+  }' \
+  --json '{
+    "phoneNumbers": [{
+      "value": "+1-555-999-8888",
+      "type": "mobile"
+    }]
+  }'
+```
+
+### Delete Contact
+
+```bash
+gws people people deleteContact --params '{
+  "resourceName": "people/c1234567890"
+}'
+```
+
+## Contact Group Operations
+
+<CodeGroup>
+```bash List contact groups
+gws people contactGroups list
+```
+
+```bash Create contact group
+gws people contactGroups create --json '{
+  "contactGroup": {
+    "name": "Work Colleagues"
+  }
+}'
+```
+
+```bash Get contact group
+gws people contactGroups get --params '{
+  "resourceName": "contactGroups/group123"
+}'
+```
+
+```bash Update contact group
+gws people contactGroups update \
+  --params '{"resourceName": "contactGroups/group123"}' \
+  --json '{
+    "contactGroup": {
+      "name": "Updated Group Name"
+    }
+  }'
+```
+</CodeGroup>
+
+## Batch Operations
+
+<CodeGroup>
+```bash Get multiple people
+gws people people getBatchGet --params '{
+  "resourceNames": ["people/c123", "people/c456"],
+  "personFields": "names,emailAddresses"
+}'
+```
+
+```bash Create multiple contacts
+gws people people batchCreateContacts --json '{
+  "contacts": [
+    {
+      "contactPerson": {
+        "names": [{"givenName": "Alice", "familyName": "Smith"}],
+        "emailAddresses": [{"value": "alice@example.com"}]
+      }
+    },
+    {
+      "contactPerson": {
+        "names": [{"givenName": "Bob", "familyName": "Jones"}],
+        "emailAddresses": [{"value": "bob@example.com"}]
+      }
+    }
+  ]
+}'
+```
+
+```bash Update multiple contacts
+gws people people batchUpdateContacts --json '{
+  "contacts": {
+    "people/c123": {
+      "phoneNumbers": [{"value": "+1-555-111-2222"}]
+    }
+  },
+  "updateMask": "phoneNumbers"
+}'
+```
+</CodeGroup>
+
+## Response Format
+
+Get person response:
+
+```json
+{
+  "resourceName": "people/c1234567890",
+  "etag": "abc123",
+  "names": [
+    {
+      "displayName": "Alice Smith",
+      "givenName": "Alice",
+      "familyName": "Smith"
+    }
+  ],
+  "emailAddresses": [
+    {
+      "value": "alice@example.com",
+      "type": "work"
+    }
+  ],
+  "phoneNumbers": [
+    {
+      "value": "+1-555-123-4567",
+      "type": "work"
+    }
+  ]
+}
+```
+
+List contacts response:
+
+```json
+{
+  "connections": [
+    {
+      "resourceName": "people/c123",
+      "names": [{"displayName": "Alice Smith"}],
+      "emailAddresses": [{"value": "alice@example.com"}]
+    }
+  ],
+  "nextPageToken": "xyz789...",
+  "totalItems": 152
+}
+```
+
+## Key Resources
+
+- `people` - Access person information and contacts
+- `people.connections` - List user's contacts
+- `contactGroups` - Manage contact groups
+- `otherContacts` - Access auto-created contacts
+
+## Available Person Fields
+
+When requesting person data, specify which fields to return:
+
+- `names` - Person's names
+- `emailAddresses` - Email addresses
+- `phoneNumbers` - Phone numbers
+- `addresses` - Physical addresses
+- `birthdays` - Birthdays
+- `organizations` - Organizations and jobs
+- `urls` - Websites
+- `photos` - Profile photos
+- `biographies` - About/bio text
+- `metadata` - Metadata about the person
+
+## Directory People
+
+Access domain directory information (requires domain-wide delegation):
+
+```bash
+# List directory people
+gws people people listDirectoryPeople --params '{
+  "readMask": "names,emailAddresses",
+  "pageSize": 100
+}'
+
+# Search directory
+gws people people searchDirectoryPeople --params '{
+  "query": "alice",
+  "readMask": "names,emailAddresses"
+}'
+```
+
+## Learn More
+
+- [People API Guide](https://developers.google.com/people/api/rest/v1/people)
+- [Managing contacts](https://developers.google.com/people/api/rest/v1/people/createContact)
+- [Person fields](https://developers.google.com/people/api/rest/v1/people#Person)
+- [Contact groups](https://developers.google.com/people/api/rest/v1/contactGroups)
+
+## Schema Inspection
+
+Before calling any method, inspect its schema:
+
+```bash
+gws schema people.people.get
+gws schema people.people.createContact
+```

@@ -1,122 +1,140 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Google Workspace CLI",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#5c646c",
+    "light": "#e2833f",
+    "dark": "#2891a4"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/6c693570-34d7-4d03-b415-ac4d6f96fc57.jpg",
+  "logo": {
+    "light": "https://media.brand.dev/119c4f7a-392e-4e0b-a52f-aee0f367217a.svg",
+    "dark": "https://media.brand.dev/119c4f7a-392e-4e0b-a52f-aee0f367217a.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/googleworkspace/cli"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/googleworkspace/cli"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "introduction",
+              "installation",
+              "quickstart"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Concepts",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "concepts/dynamic-discovery",
+              "concepts/authentication",
+              "concepts/output-format"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Authentication",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "auth/interactive",
+              "auth/manual-oauth",
+              "auth/headless-ci",
+              "auth/service-account"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Command Reference",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "commands/overview",
+              "commands/drive",
+              "commands/gmail",
+              "commands/calendar",
+              "commands/sheets",
+              "commands/docs",
+              "commands/chat",
+              "commands/admin",
+              "commands/all-services"
+            ]
+          },
+          {
+            "group": "Advanced Usage",
+            "pages": [
+              "advanced/pagination",
+              "advanced/uploads",
+              "advanced/dry-run",
+              "advanced/schema-introspection",
+              "advanced/model-armor"
+            ]
+          },
+          {
+            "group": "AI Integration",
+            "pages": [
+              "ai/agent-skills",
+              "ai/mcp-server",
+              "ai/gemini-extension",
+              "ai/skills-index"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/architecture",
+              "development/building",
+              "development/testing",
+              "development/contributing"
+            ]
+          },
+          {
+            "group": "Troubleshooting",
+            "pages": [
+              "troubleshooting/api-not-enabled",
+              "troubleshooting/auth-errors",
+              "troubleshooting/common-issues"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Services",
             "pages": [
-              "api-reference/introduction"
+              "api/drive",
+              "api/gmail",
+              "api/calendar",
+              "api/sheets",
+              "api/docs",
+              "api/slides",
+              "api/chat",
+              "api/admin",
+              "api/tasks",
+              "api/people"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Helper Commands",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/helpers/drive-upload",
+              "api/helpers/gmail-send",
+              "api/helpers/sheets-append",
+              "api/helpers/calendar-insert",
+              "api/helpers/chat-send"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

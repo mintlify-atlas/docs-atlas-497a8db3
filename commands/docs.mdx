@@ -1,0 +1,312 @@
+---
+title: "Docs Commands"
+description: "Read and write Google Docs with Docs API"
+---
+
+## Overview
+
+The Docs service provides access to Google Docs v1 API for reading document content and making structured edits via batch updates.
+
+**API**: `docs` (v1)
+
+## Common Use Cases
+
+- Read document content
+- Append text to documents
+- Apply rich formatting
+- Insert images and tables
+- Replace text
+
+## Helper Commands
+
+### `+write`
+
+Append plain text to the end of a document:
+
+```bash
+gws docs +write --document DOCUMENT_ID --text 'Hello, world!'
+```
+
+**Features**:
+- Automatically appends to document body
+- For rich formatting, use the raw `batchUpdate` API
+
+## Command Examples
+
+### Create a Document
+
+```bash Empty document
+gws docs documents create --json '{"title": "Meeting Notes"}'
+```
+
+<Accordion title="Example Response">
+```json
+{
+  "documentId": "1abc...",
+  "title": "Meeting Notes",
+  "body": {
+    "content": [
+      {
+        "startIndex": 1,
+        "endIndex": 2,
+        "paragraph": {"elements": [{"startIndex": 1, "endIndex": 2}]}
+      }
+    ]
+  }
+}
+```
+</Accordion>
+
+### Read a Document
+
+```bash
+gws docs documents get --params '{"documentId": "DOCUMENT_ID"}'
+```
+
+<Accordion title="Example Response (snippet)">
+```json
+{
+  "documentId": "1abc...",
+  "title": "Project Proposal",
+  "body": {
+    "content": [
+      {
+        "startIndex": 1,
+        "endIndex": 20,
+        "paragraph": {
+          "elements": [
+            {
+              "startIndex": 1,
+              "endIndex": 20,
+              "textRun": {"content": "Project Overview\n"}
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+```
+</Accordion>
+
+### Insert Text
+
+```bash Insert at beginning
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "insertText": {
+        "location": {"index": 1},
+        "text": "Executive Summary\n\n"
+      }
+    }
+  ]
+}'
+```
+
+```bash Append to end
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "insertText": {
+        "location": {"index": END_INDEX},
+        "text": "\n\nNext Steps\n"
+      }
+    }
+  ]
+}'
+```
+
+### Format Text
+
+```bash Bold text
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "updateTextStyle": {
+        "range": {"startIndex": 1, "endIndex": 20},
+        "textStyle": {"bold": true},
+        "fields": "bold"
+      }
+    }
+  ]
+}'
+```
+
+```bash Change font and size
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "updateTextStyle": {
+        "range": {"startIndex": 1, "endIndex": 20},
+        "textStyle": {
+          "fontSize": {"magnitude": 24, "unit": "PT"},
+          "weightedFontFamily": {"fontFamily": "Arial"}
+        },
+        "fields": "fontSize,weightedFontFamily"
+      }
+    }
+  ]
+}'
+```
+
+### Replace Text
+
+```bash Find and replace
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "replaceAllText": {
+        "containsText": {"text": "TODO", "matchCase": true},
+        "replaceText": "DONE"
+      }
+    }
+  ]
+}'
+```
+
+### Insert Image
+
+```bash From URL
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "insertInlineImage": {
+        "location": {"index": 1},
+        "uri": "https://example.com/image.png",
+        "objectSize": {
+          "height": {"magnitude": 200, "unit": "PT"},
+          "width": {"magnitude": 300, "unit": "PT"}
+        }
+      }
+    }
+  ]
+}'
+```
+
+### Insert Table
+
+```bash
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "insertTable": {
+        "location": {"index": 1},
+        "rows": 3,
+        "columns": 2
+      }
+    }
+  ]
+}'
+```
+
+### Delete Content
+
+```bash Delete range
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "deleteContentRange": {
+        "range": {"startIndex": 10, "endIndex": 50}
+      }
+    }
+  ]
+}'
+```
+
+### Apply Paragraph Style
+
+```bash Heading 1
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "updateParagraphStyle": {
+        "range": {"startIndex": 1, "endIndex": 20},
+        "paragraphStyle": {"namedStyleType": "HEADING_1"},
+        "fields": "namedStyleType"
+      }
+    }
+  ]
+}'
+```
+
+### Create Bullet List
+
+```bash
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "createParagraphBullets": {
+        "range": {"startIndex": 1, "endIndex": 100},
+        "bulletPreset": "BULLET_DISC_CIRCLE_SQUARE"
+      }
+    }
+  ]
+}'
+```
+
+### Insert Page Break
+
+```bash
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "insertPageBreak": {
+        "location": {"index": 100}
+      }
+    }
+  ]
+}'
+```
+
+## Batch Updates
+
+Multiple operations can be combined in a single request. Operations are applied in order:
+
+```bash Insert and format text
+gws docs documents batchUpdate --params '{"documentId": "DOCUMENT_ID"}' --json '{
+  "requests": [
+    {
+      "insertText": {
+        "location": {"index": 1},
+        "text": "Project Status Report\n"
+      }
+    },
+    {
+      "updateTextStyle": {
+        "range": {"startIndex": 1, "endIndex": 23},
+        "textStyle": {"bold": true, "fontSize": {"magnitude": 18, "unit": "PT"}},
+        "fields": "bold,fontSize"
+      }
+    }
+  ]
+}'
+```
+
+## Document Structure
+
+Docs are structured as a flat list of content elements with indices:
+
+- Index `1` is the start of document body
+- Each character, newline, and embedded object occupies one index
+- To append to end, find the last index from a `get` request
+
+## Resources
+
+- `documents` - Document operations (create, get, batchUpdate)
+
+Use `gws docs documents --help` to see all available methods.
+
+## Related Commands
+
+<CardGroup cols={2}>
+
+<Card title="Drive" icon="google-drive" href="/commands/drive">
+  Manage document files
+</Card>
+
+<Card title="Sheets" icon="table" href="/commands/sheets">
+  Work with spreadsheets
+</Card>
+
+</CardGroup>

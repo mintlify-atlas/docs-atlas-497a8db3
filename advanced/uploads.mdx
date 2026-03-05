@@ -1,0 +1,188 @@
+---
+title: "Multipart Uploads"
+description: "Upload files to Google Workspace APIs with multipart requests"
+---
+
+The CLI supports multipart uploads for APIs that accept file content, such as Drive, Gmail, and Apps Script.
+
+## Basic Upload Syntax
+
+Use the `--upload` flag to specify a local file to upload:
+
+```bash
+gws drive files create --json '{"name": "report.pdf"}' --upload ./report.pdf
+```
+
+The CLI automatically:
+1. Reads the file content
+2. Builds a `multipart/related` request
+3. Uses the `uploadType=multipart` endpoint
+4. Includes both metadata (JSON) and file content
+
+## How It Works
+
+The multipart upload implementation (in `src/executor.rs:621-659`) creates a `multipart/related` body:
+
+```
+--boundary_12345
+Content-Type: application/json; charset=UTF-8
+
+{"name": "report.pdf", "mimeType": "application/pdf"}
+--boundary_12345
+Content-Type: application/pdf
+
+<binary file content>
+--boundary_12345--
+```
+
+## Supported Services
+
+Upload support varies by API. Common use cases:
+
+### Drive Files
+
+Create a new file:
+
+```bash
+gws drive files create --json '{"name": "budget.xlsx", "mimeType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}' \
+  --upload ./budget.xlsx
+```
+
+Update existing file content:
+
+```bash
+gws drive files update --params '{"fileId": "1A2B3C"}' \
+  --json '{"mimeType": "application/pdf"}' \
+  --upload ./updated-report.pdf
+```
+
+### Gmail Messages
+
+Send a message with an attachment:
+
+```bash
+gws gmail users messages send --params '{"userId": "me"}' \
+  --json '{"raw": "...base64-encoded-email..."}' \
+  --upload ./message.eml
+```
+
+<Note>
+For Gmail, you typically construct the full MIME message locally and upload it. The CLI helper `gws gmail +send` provides a simpler interface for attachments.
+</Note>
+
+### Apps Script Projects
+
+Deploy a script project:
+
+```bash
+gws script projects create --json '{"title": "My Script"}' --upload ./script.json
+```
+
+## MIME Type Detection
+
+The CLI extracts the MIME type from the `mimeType` field in your JSON metadata:
+
+```bash
+gws drive files create --json '{"name": "image.png", "mimeType": "image/png"}' --upload ./photo.png
+```
+
+If no `mimeType` is provided, it defaults to `application/octet-stream`.
+
+## Upload Endpoint Selection
+
+The CLI reads the Discovery Document's `mediaUpload` section to determine the upload endpoint:
+
+```json
+"mediaUpload": {
+  "protocols": {
+    "simple": {
+      "path": "/upload/drive/v3/files"
+    }
+  }
+}
+```
+
+The upload path is automatically substituted at runtime (see `src/executor.rs:516-533`).
+
+## Examples
+
+### Upload a CSV file to Drive
+
+```bash
+gws drive files create \
+  --json '{"name": "data.csv", "parents": ["1XYZ"], "mimeType": "text/csv"}' \
+  --upload ./data.csv
+```
+
+### Upload and convert to Google Sheets
+
+```bash
+gws drive files create \
+  --json '{"name": "Q1 Sales", "mimeType": "application/vnd.google-apps.spreadsheet"}' \
+  --upload ./sales.xlsx
+```
+
+### Replace file content
+
+```bash
+# Get the file ID first
+FILE_ID=$(gws drive files list --params '{"q": "name='report.pdf'"}' | jq -r '.files[0].id')
+
+# Update the content
+gws drive files update --params '{"fileId": "'$FILE_ID'"}' --upload ./report-v2.pdf
+```
+
+## Error Handling
+
+If the file cannot be read:
+
+```json
+{
+  "error": "Failed to read upload file './missing.pdf': No such file or directory (os error 2)"
+}
+```
+
+If the API doesn't support uploads for the method:
+
+```json
+{
+  "error": "Method supports media upload but no upload path found in Discovery Document"
+}
+```
+
+## Dry Run
+
+Preview the upload request structure without sending it:
+
+```bash
+gws drive files create --json '{"name": "test.pdf"}' --upload ./test.pdf --dry-run
+```
+
+```json
+{
+  "dry_run": true,
+  "url": "https://www.googleapis.com/upload/drive/v3/files",
+  "method": "POST",
+  "query_params": {
+    "uploadType": "multipart"
+  },
+  "body": {
+    "name": "test.pdf"
+  },
+  "is_multipart_upload": true
+}
+```
+
+## Best Practices
+
+<Tip>
+Always specify the correct `mimeType` in your JSON metadata to ensure the file is uploaded with the right content type.
+</Tip>
+
+<Warning>
+Large file uploads (>5 MB) may fail with `multipart` mode. Use resumable uploads for files larger than 5 MB (currently not supported; use the Drive API directly for resumable uploads).
+</Warning>
+
+<Note>
+The `--upload` flag is only valid for methods that declare `supportsMediaUpload: true` in the Discovery Document.
+</Note>

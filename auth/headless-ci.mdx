@@ -1,0 +1,320 @@
+---
+title: Headless/CI Authentication
+description: Run gws in CI/CD environments and headless servers
+---
+
+Use this approach to run `gws` commands in environments without a browser, such as:
+- GitHub Actions, GitLab CI, CircleCI
+- Docker containers
+- SSH sessions on remote servers
+- Automated scripts and cron jobs
+
+## Overview
+
+The headless authentication flow:
+
+1. Authenticate interactively on a machine with a browser
+2. Export the encrypted credentials to a file
+3. Transfer the file to your CI/headless environment
+4. Set `GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE` to point to the file
+5. Run `gws` commands — they'll "just work" with no login prompt
+
+## Export Credentials from Interactive Machine
+
+<Steps>
+  <Step title="Authenticate interactively">
+    On your local development machine:
+
+    ```bash
+    gws auth setup
+    # or
+    gws auth login
+    ```
+  </Step>
+
+  <Step title="Export credentials">
+    Export the decrypted credentials to a file:
+
+    ```bash
+    gws auth export --unmasked > credentials.json
+    ```
+
+    <Warning>
+    The exported file contains your OAuth client secret and refresh token in plaintext. Handle it carefully:
+    - Do not commit to version control
+    - Use encrypted CI secrets storage
+    - Delete after uploading to CI
+    </Warning>
+  </Step>
+
+  <Step title="Verify the export">
+    Check the exported file format:
+
+    ```bash
+    cat credentials.json | jq
+    ```
+
+    Expected format:
+    ```json
+    {
+      "type": "authorized_user",
+      "client_id": "123456789.apps.googleusercontent.com",
+      "client_secret": "GOCSPX-...",
+      "refresh_token": "1//..."
+    }
+    ```
+  </Step>
+</Steps>
+
+## Configure CI Environment
+
+### Using Environment Variable
+
+Set the path to your credentials file:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/path/to/credentials.json
+gws drive files list
+```
+
+### Using CI Secrets
+
+Most CI platforms support encrypted secrets. Store the credentials file content as a secret:
+
+#### GitHub Actions
+
+```yaml
+name: Workspace Automation
+
+on: [push]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install gws
+        run: npm install -g @googleworkspace/cli
+      
+      - name: Set up credentials
+        run: |
+          mkdir -p ~/.config/gws
+          echo '${{ secrets.GWS_CREDENTIALS }}' > ~/.config/gws/credentials.json
+        
+      - name: List Drive files
+        env:
+          GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE: /home/runner/.config/gws/credentials.json
+        run: |
+          gws drive files list --params '{"pageSize": 10}'
+```
+
+**To set the secret:**
+1. Go to your repo → Settings → Secrets and variables → Actions
+2. Click **New repository secret**
+3. Name: `GWS_CREDENTIALS`
+4. Value: Paste the contents of `credentials.json`
+
+#### GitLab CI
+
+```yaml
+workspace-sync:
+  image: node:20
+  before_script:
+    - npm install -g @googleworkspace/cli
+    - mkdir -p ~/.config/gws
+    - echo "$GWS_CREDENTIALS" > ~/.config/gws/credentials.json
+  script:
+    - export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=~/.config/gws/credentials.json
+    - gws drive files list --params '{"pageSize": 10}'
+```
+
+**To set the variable:**
+1. Go to Settings → CI/CD → Variables
+2. Add variable `GWS_CREDENTIALS` (masked)
+3. Paste the contents of `credentials.json`
+
+#### CircleCI
+
+```yaml
+version: 2.1
+
+jobs:
+  workspace-sync:
+    docker:
+      - image: cimg/node:20.0
+    steps:
+      - checkout
+      - run:
+          name: Install gws
+          command: npm install -g @googleworkspace/cli
+      - run:
+          name: Set up credentials
+          command: |
+            mkdir -p ~/.config/gws
+            echo "$GWS_CREDENTIALS" > ~/.config/gws/credentials.json
+      - run:
+          name: List Drive files
+          command: |
+            export GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=~/.config/gws/credentials.json
+            gws drive files list --params '{"pageSize": 10}'
+
+workflows:
+  main:
+    jobs:
+      - workspace-sync
+```
+
+**To set the environment variable:**
+1. Go to Project Settings → Environment Variables
+2. Add `GWS_CREDENTIALS`
+3. Paste the contents of `credentials.json`
+
+### Docker
+
+```dockerfile
+FROM node:20-alpine
+
+RUN npm install -g @googleworkspace/cli
+
+# Copy credentials at build time (not recommended for production)
+# COPY credentials.json /app/credentials.json
+
+# Better: mount as volume or pass as secret at runtime
+ENV GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/app/credentials.json
+
+CMD ["gws", "drive", "files", "list"]
+```
+
+Run with mounted credentials:
+
+```bash
+docker run -v $(pwd)/credentials.json:/app/credentials.json my-gws-image
+```
+
+## Using .env Files
+
+`gws` automatically loads environment variables from a `.env` file in the current directory:
+
+```bash
+# .env
+GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/path/to/credentials.json
+```
+
+<Warning>
+Never commit `.env` files containing credentials to version control. Add `.env` to your `.gitignore`.
+</Warning>
+
+## Credential Precedence
+
+When running `gws` commands, credentials are resolved in this order:
+
+| Priority | Source | Set via |
+|----------|--------|--------|
+| 1 | Pre-obtained access token | `GOOGLE_WORKSPACE_CLI_TOKEN` |
+| 2 | Credentials file (env var) | `GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE` |
+| 3 | Encrypted credentials | `~/.config/gws/credentials.enc` (from `gws auth login`) |
+| 4 | Plaintext credentials | `~/.config/gws/credentials.json` |
+
+<Note>
+Environment variables can also be loaded from a `.env` file in the working directory.
+</Note>
+
+## Using Pre-Obtained Access Tokens
+
+If another tool (e.g., `gcloud`, Application Default Credentials) already provides access tokens, you can bypass credential files entirely:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_TOKEN=$(gcloud auth print-access-token)
+gws drive files list
+```
+
+<Warning>
+Access tokens expire quickly (typically 1 hour). This approach only works for short-lived scripts. For long-running CI jobs, use the refresh token method above.
+</Warning>
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use CI-native secrets management">
+    - Store credentials in GitHub Secrets, GitLab Variables, or CircleCI Environment Variables
+    - Never hardcode credentials in workflow files
+    - Use masked/protected variables when available
+  </Accordion>
+
+  <Accordion title="Restrict credential scope">
+    - Create credentials with read-only scopes when possible:
+      ```bash
+      gws auth login --readonly
+      gws auth export --unmasked > ci-credentials.json
+      ```
+    - Use different credentials for different CI jobs
+  </Accordion>
+
+  <Accordion title="Rotate credentials regularly">
+    - Re-run `gws auth login` and export new credentials monthly
+    - Update CI secrets after rotation
+    - Run `gws auth logout` on the source machine after export
+  </Accordion>
+
+  <Accordion title="Audit credential usage">
+    - Monitor OAuth token usage in Google Cloud Console
+    - Set up alerts for unusual API activity
+    - Use service accounts for production workloads (see next section)
+  </Accordion>
+</AccordionGroup>
+
+## Debugging
+
+### Check which credentials are being used
+
+```bash
+gws auth status
+```
+
+Look for the `credential_source` field:
+
+```json
+{
+  "credential_source": "GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE",
+  "plain_credentials": "/path/to/credentials.json",
+  "plain_credentials_exists": true
+}
+```
+
+### Test authentication
+
+```bash
+# Minimal test
+gws drive about get
+
+# Test with verbose output
+GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE=/path/to/credentials.json \
+  gws drive files list --params '{"pageSize": 1}'
+```
+
+## Limitations
+
+- Exported credentials are tied to the OAuth client used during `gws auth login`
+- If the original OAuth client is deleted in GCP Console, the credentials will stop working
+- Refresh tokens can be revoked by the user at https://myaccount.google.com/permissions
+
+## When to Use Service Accounts Instead
+
+Consider using [service accounts](/auth/service-account) if:
+
+- You need credentials that never expire
+- You're running automated workflows in a Google Workspace domain with Domain-Wide Delegation
+- You want credentials that aren't tied to a specific user account
+- You need to access resources across multiple user accounts
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Service Accounts" icon="key" href="/auth/service-account">
+    Use service accounts for server-to-server authentication
+  </Card>
+  <Card title="Interactive Auth" icon="browser" href="/auth/interactive">
+    Return to local development setup
+  </Card>
+</CardGroup>

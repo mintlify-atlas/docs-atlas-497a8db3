@@ -1,0 +1,257 @@
+---
+title: Interactive Authentication
+description: Set up OAuth authentication for local development with browser-based login
+---
+
+Interactive authentication is the recommended approach for local development. It uses OAuth 2.0 with a browser-based consent flow and stores credentials encrypted at rest.
+
+## Quick Start
+
+For first-time setup (creates GCP project, enables APIs, and logs you in):
+
+```bash
+gws auth setup
+```
+
+For subsequent logins:
+
+```bash
+gws auth login
+```
+
+## Prerequisites
+
+<Warning>
+The `gws auth setup` command requires the [`gcloud` CLI](https://cloud.google.com/sdk/docs/install) to be installed and authenticated.
+</Warning>
+
+Install gcloud CLI:
+
+```bash
+# macOS
+brew install google-cloud-sdk
+
+# Linux
+curl https://sdk.cloud.google.com | bash
+
+# Windows
+choco install gcloudsdk
+```
+
+Authenticate gcloud:
+
+```bash
+gcloud auth login
+```
+
+## First-Time Setup
+
+<Steps>
+  <Step title="Run auth setup">
+    The `gws auth setup` command automates the entire OAuth configuration process:
+
+    ```bash
+    gws auth setup
+    ```
+
+    This command will:
+    - Create a new Google Cloud project (or use an existing one with `--project`)
+    - Enable required Google Workspace APIs
+    - Create an OAuth 2.0 Desktop App client
+    - Download the client credentials
+    - Trigger the OAuth login flow
+  </Step>
+
+  <Step title="Select scopes">
+    You'll be prompted to select OAuth scopes in an interactive picker:
+
+    - **Recommended** (default): Non-restricted scopes + read-only scopes
+    - **Read Only**: Only read-only scopes for enabled APIs
+    - **Full Access**: All scopes including restricted ones (may require app verification)
+    - **Custom**: Select individual scopes manually
+
+    Use arrow keys to navigate, Space to toggle, Enter to confirm.
+  </Step>
+
+  <Step title="Authorize in browser">
+    A browser window will open with the OAuth consent screen.
+
+    <Warning>
+    If you see "Google hasn't verified this app", click **Continue**. This is normal for personal GCP projects in testing mode.
+    </Warning>
+
+    - Select your Google account
+    - Review and approve the requested scopes
+    - The page will redirect to `localhost` and display "Authentication complete"
+  </Step>
+
+  <Step title="Verify authentication">
+    Check your authentication status:
+
+    ```bash
+    gws auth status
+    ```
+
+    Example output:
+    ```json
+    {
+      "auth_method": "oauth2",
+      "storage": "encrypted",
+      "encrypted_credentials": "/home/user/.config/gws/credentials.enc",
+      "encrypted_credentials_exists": true,
+      "encryption": "AES-256-GCM",
+      "user": "you@example.com",
+      "scopes": [
+        "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/gmail.modify"
+      ]
+    }
+    ```
+  </Step>
+</Steps>
+
+## Subsequent Logins
+
+Once you've run `gws auth setup`, use `gws auth login` for future authentications:
+
+```bash
+gws auth login
+```
+
+This reuses the saved OAuth client configuration from `~/.config/gws/client_secret.json` and only requires browser authentication.
+
+### Scope Options
+
+```bash
+# Request read-only scopes
+gws auth login --readonly
+
+# Request all scopes (including restricted ones)
+gws auth login --full
+
+# Request custom scopes
+gws auth login --scopes https://www.googleapis.com/auth/drive,https://www.googleapis.com/auth/gmail.readonly
+```
+
+## Security Model
+
+### Credential Encryption
+
+Credentials are encrypted at rest using **AES-256-GCM**. The encryption key is stored securely:
+
+1. **Primary**: OS Keyring (macOS Keychain, Windows Credential Manager, Linux Secret Service)
+2. **Fallback**: Local file `~/.config/gws/.encryption_key` with `0600` permissions (Unix)
+
+The encrypted credentials file is stored at:
+```
+~/.config/gws/credentials.enc
+```
+
+### What's Stored
+
+The encrypted credentials file contains:
+- OAuth client ID
+- OAuth client secret
+- Refresh token (used to obtain new access tokens)
+
+Access tokens are cached separately in `~/.config/gws/token_cache.json` (also encrypted) and automatically refreshed when expired.
+
+### File Permissions
+
+On Unix systems, `gws` automatically sets secure permissions:
+- Config directory: `0700` (user-only access)
+- Credentials files: `0600` (user read/write only)
+- Encryption key file: `0600`
+
+## Checking Authentication Status
+
+View detailed authentication information:
+
+```bash
+gws auth status
+```
+
+This displays:
+- Authentication method (OAuth2 or service account)
+- Storage type (encrypted, plaintext, or none)
+- Credential source (env var, file, or OS keyring)
+- User email (if logged in)
+- Granted OAuth scopes
+- Enabled APIs in your GCP project
+- Token validity
+
+## Exporting Credentials
+
+For debugging or to transfer credentials to another machine:
+
+```bash
+# Export with masked secrets
+gws auth export
+
+# Export unmasked (for CI/headless use)
+gws auth export --unmasked > credentials.json
+```
+
+<Warning>
+The `--unmasked` flag outputs your client secret and refresh token in plaintext. Handle this file carefully and never commit it to version control.
+</Warning>
+
+## Logging Out
+
+Remove all saved credentials and token caches:
+
+```bash
+gws auth logout
+```
+
+This deletes:
+- `~/.config/gws/credentials.enc`
+- `~/.config/gws/credentials.json` (if present)
+- `~/.config/gws/token_cache.json`
+
+<Note>
+The OAuth client configuration (`client_secret.json`) is preserved so you can run `gws auth login` again without repeating the full setup.
+</Note>
+
+## Troubleshooting
+
+### "Google hasn't verified this app" Warning
+
+This is normal for OAuth apps in testing mode. Click **Continue** to proceed. To remove this warning:
+
+1. Complete the [OAuth app verification process](https://support.google.com/cloud/answer/9110914)
+2. Or add your email to the test users list in the OAuth consent screen
+
+### "restricted_client" Error
+
+Some scopes (e.g., `cloud-platform`, `pubsub`) require app verification or are restricted for personal accounts.
+
+Solution:
+- Use `gws auth login` without `--full` (defaults to safe scopes)
+- Or verify your OAuth app in Google Cloud Console
+- Or use a Google Workspace account with appropriate admin permissions
+
+### Decryption Failed
+
+If you see "Decryption failed" errors:
+
+```bash
+gws auth logout
+gws auth login
+```
+
+This can happen if:
+- Credentials were created on a different machine
+- The OS keyring was reset or is unavailable
+- The `.encryption_key` file was deleted
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Headless/CI Setup" icon="server" href="/auth/headless-ci">
+    Export credentials for CI/CD environments
+  </Card>
+  <Card title="Manual OAuth Setup" icon="wrench" href="/auth/manual-oauth">
+    Configure OAuth clients manually in Google Cloud Console
+  </Card>
+</CardGroup>

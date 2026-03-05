@@ -1,0 +1,264 @@
+---
+title: Installation
+description: Install the Google Workspace CLI via npm or build from source
+---
+
+# Installation
+
+The Google Workspace CLI can be installed via npm (recommended) or built from source using Cargo.
+
+## System Requirements
+
+<AccordionGroup>
+  <Accordion title="Operating System">
+    - **Linux**: All major distributions (Ubuntu, Debian, Fedora, Arch, etc.)
+    - **macOS**: 10.15 (Catalina) or later
+    - **Windows**: Windows 10/11 with WSL2 recommended
+  </Accordion>
+  <Accordion title="Node.js (for npm installation)">
+    - **Version**: Node.js 18 or later
+    - Check your version: `node --version`
+    - Download from [nodejs.org](https://nodejs.org/)
+  </Accordion>
+  <Accordion title="Rust (for source installation)">
+    - **Version**: Rust 1.70 or later (2021 edition)
+    - Check your version: `cargo --version`
+    - Install from [rustup.rs](https://rustup.rs/)
+  </Accordion>
+  <Accordion title="gcloud CLI (for auth setup)">
+    - Required for `gws auth setup` command
+    - Optional if you configure OAuth manually
+    - Install from [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
+  </Accordion>
+</AccordionGroup>
+
+## Install via npm (Recommended)
+
+The easiest way to install `gws` is through npm:
+
+<CodeGroup>
+
+```bash npm
+npm install -g @googleworkspace/cli
+```
+
+```bash pnpm
+pnpm add -g @googleworkspace/cli
+```
+
+```bash yarn
+yarn global add @googleworkspace/cli
+```
+
+</CodeGroup>
+
+<Note>
+  The npm package includes pre-built binaries for Linux, macOS, and Windows. No Rust toolchain required.
+</Note>
+
+### Verify Installation
+
+Confirm the CLI is installed correctly:
+
+```bash Terminal
+gws --version
+```
+
+Expected output:
+
+```text Output
+gws 0.3.3
+```
+
+## Build from Source
+
+If you want to build from source or contribute to development, use Cargo:
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash Terminal
+    git clone https://github.com/googleworkspace/cli.git
+    cd cli
+    ```
+  </Step>
+  
+  <Step title="Build and install">
+    ```bash Terminal
+    cargo install --path .
+    ```
+    
+    This compiles the Rust binary and installs it to `~/.cargo/bin/gws`.
+  </Step>
+  
+  <Step title="Verify installation">
+    ```bash Terminal
+    gws --version
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  Building from source gives you the latest unreleased features but may include breaking changes.
+</Tip>
+
+### Development Build
+
+For active development, build without installing:
+
+```bash Terminal
+cargo build                       # Debug build → target/debug/gws
+cargo build --release             # Optimized build → target/release/gws
+cargo clippy -- -D warnings       # Lint check
+cargo test                        # Run unit tests
+```
+
+Then run the binary directly:
+
+```bash Terminal
+./target/debug/gws --help
+```
+
+## Package Managers
+
+<Warning>
+  Additional package managers (Homebrew, Chocolatey, Snap) are planned but not yet available. For now, use npm or Cargo.
+</Warning>
+
+### Planned Support
+
+- **Homebrew** (macOS/Linux): `brew install googleworkspace/tap/gws`
+- **Chocolatey** (Windows): `choco install gws`
+- **Snap** (Linux): `snap install gws`
+
+Check the [GitHub repository](https://github.com/googleworkspace/cli) for updates.
+
+## Configuration Directory
+
+After installation, `gws` creates a configuration directory on first run:
+
+| Platform | Location |
+|----------|----------|
+| **Linux** | `~/.config/gws/` |
+| **macOS** | `~/Library/Application Support/gws/` |
+| **Windows** | `%APPDATA%\gws\` |
+
+This directory stores:
+
+- **`client_secret.json`**: OAuth client credentials (if configured manually)
+- **Discovery cache**: API discovery documents (cached for 24 hours)
+- **Encrypted credentials**: OAuth tokens secured with OS keyring
+
+<Note>
+  Credentials are encrypted at rest using AES-256-GCM with keys stored in your OS keyring.
+</Note>
+
+## Updating
+
+Keep `gws` up to date to get the latest features and bug fixes.
+
+### Update via npm
+
+```bash Terminal
+npm update -g @googleworkspace/cli
+```
+
+### Update from source
+
+```bash Terminal
+cd cli
+git pull origin main
+cargo install --path .
+```
+
+## Uninstall
+
+### Remove npm installation
+
+```bash Terminal
+npm uninstall -g @googleworkspace/cli
+```
+
+### Remove Cargo installation
+
+```bash Terminal
+cargo uninstall gws
+```
+
+### Remove configuration
+
+To completely remove all stored credentials and cache:
+
+<CodeGroup>
+
+```bash Linux/macOS
+rm -rf ~/.config/gws
+```
+
+```powershell Windows
+Remove-Item -Recurse -Force $env:APPDATA\gws
+```
+
+</CodeGroup>
+
+<Warning>
+  This will delete all stored OAuth credentials. You'll need to re-authenticate after reinstalling.
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Command not found: gws">
+    **Problem**: The `gws` binary is not in your PATH.
+    
+    **Solution**:
+    - For npm: Ensure npm global bin directory is in PATH
+      ```bash
+      npm config get prefix  # Should show a directory in your PATH
+      ```
+    - For Cargo: Ensure `~/.cargo/bin` is in your PATH
+      ```bash
+      echo $PATH | grep cargo
+      ```
+  </Accordion>
+  
+  <Accordion title="Permission denied errors">
+    **Problem**: Insufficient permissions to install globally.
+    
+    **Solution**:
+    - Use `sudo` for npm (not recommended):
+      ```bash
+      sudo npm install -g @googleworkspace/cli
+      ```
+    - Or configure npm to use a user directory (recommended):
+      ```bash
+      npm config set prefix ~/.npm-global
+      export PATH=~/.npm-global/bin:$PATH
+      ```
+  </Accordion>
+  
+  <Accordion title="Rust compilation errors">
+    **Problem**: Cargo build fails with dependency errors.
+    
+    **Solution**:
+    - Update Rust to the latest stable version:
+      ```bash
+      rustup update stable
+      ```
+    - Clean build artifacts and retry:
+      ```bash
+      cargo clean
+      cargo build --release
+      ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Set up authentication and run your first command
+  </Card>
+  <Card title="Authentication" icon="key" href="/auth/interactive">
+    Configure Google Cloud OAuth credentials
+  </Card>
+</CardGroup>

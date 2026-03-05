@@ -1,0 +1,235 @@
+---
+title: "Dry Run Mode"
+description: "Preview API requests without executing them"
+---
+
+The `--dry-run` flag validates your request locally and shows exactly what would be sent to the API, without actually making the request.
+
+## Basic Usage
+
+```bash
+gws chat spaces messages create \
+  --params '{"parent": "spaces/xyz"}' \
+  --json '{"text": "Deploy complete."}' \
+  --dry-run
+```
+
+## Output Structure
+
+Dry run mode returns a JSON object with the full request details:
+
+```json
+{
+  "dry_run": true,
+  "url": "https://chat.googleapis.com/v1/spaces/xyz/messages",
+  "method": "POST",
+  "query_params": {},
+  "body": {
+    "text": "Deploy complete."
+  },
+  "is_multipart_upload": false
+}
+```
+
+## What Dry Run Validates
+
+The dry run mode (implemented in `src/executor.rs:372-389`) performs the following checks:
+
+1. **Parameter validation**: Ensures all required path and query parameters are present
+2. **URL construction**: Builds the full URL with parameter substitution
+3. **Schema validation**: Validates the request body against the Discovery Document schema
+4. **Multipart detection**: Identifies if the request will use multipart upload
+
+<Note>
+Dry run does NOT check:
+- Authentication (no token is used)
+- Authorization (no actual API call is made)
+- Server-side validation rules
+</Note>
+
+## Use Cases
+
+### Testing Destructive Operations
+
+Before deleting a resource:
+
+```bash
+# Verify the exact file that will be deleted
+gws drive files delete --params '{"fileId": "1ABC"}' --dry-run
+```
+
+```json
+{
+  "dry_run": true,
+  "url": "https://www.googleapis.com/drive/v3/files/1ABC",
+  "method": "DELETE",
+  "query_params": {},
+  "body": null,
+  "is_multipart_upload": false
+}
+```
+
+### Debugging Request Bodies
+
+Validate complex JSON payloads:
+
+```bash
+gws sheets spreadsheets create --json '{
+  "properties": {
+    "title": "Q1 Budget",
+    "locale": "en_US",
+    "timeZone": "America/New_York"
+  },
+  "sheets": [
+    {
+      "properties": {
+        "title": "Revenue",
+        "gridProperties": {
+          "rowCount": 100,
+          "columnCount": 26
+        }
+      }
+    }
+  ]
+}' --dry-run
+```
+
+If the schema is invalid, you'll get an error before making the request:
+
+```json
+{
+  "error": "Request body failed schema validation:\n- sheets[0].invalidField: Unknown property. Valid properties: [\"properties\", \"data\", ...]"
+}
+```
+
+### Verifying Parameter Substitution
+
+Ensure path parameters are correctly interpolated:
+
+```bash
+gws drive files get --params '{"fileId": "1XYZ", "fields": "id,name,mimeType"}' --dry-run
+```
+
+```json
+{
+  "dry_run": true,
+  "url": "https://www.googleapis.com/drive/v3/files/1XYZ",
+  "method": "GET",
+  "query_params": {
+    "fields": "id,name,mimeType"
+  },
+  "body": null,
+  "is_multipart_upload": false
+}
+```
+
+### Testing Upload Requests
+
+```bash
+gws drive files create --json '{"name": "report.pdf"}' --upload ./report.pdf --dry-run
+```
+
+```json
+{
+  "dry_run": true,
+  "url": "https://www.googleapis.com/upload/drive/v3/files",
+  "method": "POST",
+  "query_params": {
+    "uploadType": "multipart"
+  },
+  "body": {
+    "name": "report.pdf"
+  },
+  "is_multipart_upload": true
+}
+```
+
+## Integration with AI Agents
+
+Dry run is especially useful when AI agents are constructing API requests:
+
+```bash
+# Agent can validate the request before executing
+gws drive files update \
+  --params '{"fileId": "1ABC"}' \
+  --json '{"name": "renamed-file.pdf", "description": "Updated by agent"}' \
+  --dry-run
+
+# If dry run succeeds, remove --dry-run to execute
+gws drive files update \
+  --params '{"fileId": "1ABC"}' \
+  --json '{"name": "renamed-file.pdf", "description": "Updated by agent"}'
+```
+
+## Schema Validation Errors
+
+Dry run catches schema violations:
+
+**Missing required field:**
+
+```bash
+gws sheets spreadsheets create --json '{}' --dry-run
+```
+
+```json
+{
+  "error": "Request body failed schema validation:\n- Missing required property 'properties'"
+}
+```
+
+**Invalid field type:**
+
+```bash
+gws drive files create --json '{"name": 123}' --dry-run
+```
+
+```json
+{
+  "error": "Request body failed schema validation:\n- name: Expected type 'string', found integer"
+}
+```
+
+**Invalid enum value:**
+
+```bash
+gws calendar events insert --params '{"calendarId": "primary"}' --json '{
+  "summary": "Meeting",
+  "start": {"dateTime": "2024-03-01T10:00:00Z"},
+  "end": {"dateTime": "2024-03-01T11:00:00Z"},
+  "visibility": "invalid"
+}' --dry-run
+```
+
+```json
+{
+  "error": "Request body failed schema validation:\n- visibility: Value 'invalid' is not a valid enum member. Valid options: [\"default\", \"public\", \"private\", \"confidential\"]"
+}
+```
+
+## Implementation Details
+
+The dry run flow (`src/executor.rs:372-389`):
+
+1. Parse and validate inputs (same as normal execution)
+2. Check request body against schema
+3. Build the full URL and query parameters
+4. Return the request metadata as JSON
+5. Skip HTTP client creation and execution
+
+## Best Practices
+
+<Tip>
+Always use `--dry-run` before executing destructive operations (delete, update, batch changes).
+</Tip>
+
+<Tip>
+For AI agents: run every request with `--dry-run` first, then execute if validation passes.
+</Tip>
+
+<Warning>
+Dry run does not verify that you have permission to perform the operation or that the resource exists. It only validates the request structure.
+</Warning>
+
+<Note>
+Dry run output is always JSON, regardless of the `--output` format setting.
+</Note>

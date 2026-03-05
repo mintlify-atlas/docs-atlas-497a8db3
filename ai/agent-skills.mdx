@@ -1,0 +1,88 @@
+---
+title: Agent Skills
+description: Install and use 100+ agent skills for AI-powered Google Workspace automation
+---
+
+## What are Agent Skills?
+
+Agent skills are structured instruction files (`SKILL.md`) that teach AI agents how to use the `gws` CLI to accomplish specific tasks. Each skill provides:
+
+- Clear descriptions of what the skill does
+- Step-by-step instructions for the agent
+- Real command examples with proper syntax
+- Context about when to use the skill
+
+The Google Workspace CLI ships with **100+ agent skills** covering:
+
+- **Core Services**: Drive, Gmail, Calendar, Sheets, Docs, Slides, Chat, and more
+- **Helper Commands**: Shortcuts for common operations like sending email or uploading files
+- **Workflows**: Multi-step automation sequences
+- **Recipes**: 50+ curated task sequences with real commands
+- **Personas**: Role-based skill bundles (executive assistant, project manager, IT admin, etc.)
+
+## Installation
+
+### Install All Skills at Once
+
+The fastest way to get started is to install the entire skill library:
+
+```bash
+npx skills add github:googleworkspace/cli
+```
+
+This command installs all 100+ skills from the repository in one step.
+
+### Install Individual Skills
+
+If you only need specific capabilities, you can install skills individually:
+
+```bash
+# Install Drive skills only
+npx skills add https://github.com/googleworkspace/cli/tree/main/skills/gws-drive
+
+# Install Gmail skills
+npx skills add https://github.com/googleworkspace/cli/tree/main/skills/gws-gmail
+
+# Install a helper skill
+npx skills add https://github.com/googleworkspace/cli/tree/main/skills/gws-gmail-send
+
+# Install a workflow skill
+npx skills add https://github.com/googleworkspace/cli/tree/main/skills/gws-workflow-standup-report
+```
+
+## OpenClaw Setup
+
+If you're using [OpenClaw](https://github.com/anomalyco/openclaw), you can symlink or copy skills directly:
+
+### Symlink All Skills (Recommended)
+
+Symlinking keeps your skills in sync with the repository:
+
+```bash
+# From the gws CLI repository directory
+ln -s $(pwd)/skills/gws-* ~/.openclaw/skills/
+```
+
+With this approach, pulling updates to the `gws` repository automatically updates your agent's skills.
+
+### Copy Specific Skills
+
+If you prefer to copy skills instead:
+
+```bash
+cp -r skills/gws-drive skills/gws-gmail ~/.openclaw/skills/
+```
+
+### Automatic CLI Installation
+
+The `gws-shared` skill includes an `install` block that automatically installs the `gws` CLI via `npm` if it's not already on the system PATH. This ensures your agent can always execute `gws` commands.
+
+## Browse All Skills
+
+For a complete list of all available skills grouped by category (Services, Helpers, Workflows, Personas, Recipes), see the [Skills Index](/ai/skills-index).
+
+## Next Steps
+
+- [MCP Server](/ai/mcp-server) - Expose Google Workspace APIs via Model Context Protocol
+- [Gemini Extension](/ai/gemini-extension) - Install the CLI as a Gemini CLI extension
+- [Skills Index](/ai/skills-index) - Browse all 100+ skills by category

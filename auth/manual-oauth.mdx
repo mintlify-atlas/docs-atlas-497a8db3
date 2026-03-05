@@ -1,0 +1,266 @@
+---
+title: Manual OAuth Setup
+description: Configure OAuth 2.0 clients manually in Google Cloud Console
+---
+
+Use this approach when:
+- `gws auth setup` cannot automate project/client creation
+- You want explicit control over the OAuth client configuration
+- You're using a shared GCP project with existing OAuth clients
+- You need to configure the OAuth consent screen with specific branding
+
+## Prerequisites
+
+- A Google Cloud project with billing enabled
+- Owner or Editor permissions on the project
+- Access to the [Google Cloud Console](https://console.cloud.google.com)
+
+## Setup Steps
+
+<Steps>
+  <Step title="Enable required APIs">
+    Navigate to the [API Library](https://console.cloud.google.com/apis/library) and enable:
+
+    - Google Drive API
+    - Gmail API
+    - Google Calendar API
+    - Google Sheets API
+    - Google Docs API
+    - Google Slides API
+    - (Any other Workspace APIs you need)
+
+    Or enable via `gcloud`:
+    ```bash
+    gcloud services enable drive.googleapis.com \
+      gmail.googleapis.com \
+      calendar-json.googleapis.com \
+      sheets.googleapis.com \
+      docs.googleapis.com \
+      slides.googleapis.com \
+      --project=YOUR_PROJECT_ID
+    ```
+  </Step>
+
+  <Step title="Configure OAuth consent screen">
+    Open the OAuth consent screen configuration:
+
+    ```
+    https://console.cloud.google.com/apis/credentials/consent?project=YOUR_PROJECT_ID
+    ```
+
+    Replace `YOUR_PROJECT_ID` with your actual project ID.
+
+    Configure:
+    - **User Type**: External (unless you have a Google Workspace org)
+    - **App name**: `gws CLI` (or your preferred name)
+    - **User support email**: Your email
+    - **Developer contact email**: Your email
+
+    <Note>
+    For personal projects, select **External** and keep the app in "Testing" mode. This allows up to 100 test users without requiring app verification.
+    </Note>
+  </Step>
+
+  <Step title="Add test users (if in testing mode)">
+    If your app is in Testing mode, add your Google account email to the test users list:
+
+    1. Scroll to **Test users**
+    2. Click **Add Users**
+    3. Enter your email address
+    4. Click **Save**
+
+    <Warning>
+    Only test users can authorize the app while it's in testing mode.
+    </Warning>
+  </Step>
+
+  <Step title="Create OAuth client ID">
+    Navigate to the Credentials page:
+
+    ```
+    https://console.cloud.google.com/apis/credentials?project=YOUR_PROJECT_ID
+    ```
+
+    Create credentials:
+    1. Click **Create Credentials** → **OAuth client ID**
+    2. **Application type**: Desktop app
+    3. **Name**: `gws CLI` (or your preferred name)
+    4. Click **Create**
+
+    <Note>
+    The "Desktop app" type is required for `gws` to use the `http://localhost` redirect flow.
+    </Note>
+  </Step>
+
+  <Step title="Download client secret JSON">
+    After creating the OAuth client:
+
+    1. Click the **Download** icon (⬇) next to your newly created client
+    2. Save the file as `client_secret.json`
+
+    The downloaded file will look like:
+    ```json
+    {
+      "installed": {
+        "client_id": "123456789.apps.googleusercontent.com",
+        "project_id": "your-project-id",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_secret": "GOCSPX-...",
+        "redirect_uris": ["http://localhost"]
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Place client secret file">
+    Move the downloaded file to the `gws` config directory:
+
+    ```bash
+    mkdir -p ~/.config/gws
+    mv ~/Downloads/client_secret*.json ~/.config/gws/client_secret.json
+    chmod 600 ~/.config/gws/client_secret.json
+    ```
+
+    The file must be located at:
+    ```
+    ~/.config/gws/client_secret.json
+    ```
+  </Step>
+
+  <Step title="Run gws auth login">
+    Authenticate using your manually configured OAuth client:
+
+    ```bash
+    gws auth login
+    ```
+
+    This will:
+    1. Read the client credentials from `~/.config/gws/client_secret.json`
+    2. Open a browser for OAuth consent
+    3. Save encrypted credentials to `~/.config/gws/credentials.enc`
+  </Step>
+</Steps>
+
+## Alternative: Environment Variables
+
+Instead of placing the `client_secret.json` file, you can provide credentials via environment variables:
+
+```bash
+export GOOGLE_WORKSPACE_CLI_CLIENT_ID="123456789.apps.googleusercontent.com"
+export GOOGLE_WORKSPACE_CLI_CLIENT_SECRET="GOCSPX-..."
+
+gws auth login
+```
+
+<Warning>
+Environment variables take precedence over the `client_secret.json` file. If both are set, the env vars will be used.
+</Warning>
+
+## File Locations
+
+| File | Path | Purpose |
+|------|------|--------|
+| OAuth client config | `~/.config/gws/client_secret.json` | Client ID and secret (plaintext) |
+| Encrypted credentials | `~/.config/gws/credentials.enc` | Refresh token (encrypted) |
+| Token cache | `~/.config/gws/token_cache.json` | Access tokens (encrypted, auto-refreshed) |
+| Encryption key | `~/.config/gws/.encryption_key` | AES-256 key (fallback if OS keyring unavailable) |
+
+## Credential Precedence
+
+When `gws auth login` looks for OAuth client credentials, it checks in this order:
+
+1. `GOOGLE_WORKSPACE_CLI_CLIENT_ID` and `GOOGLE_WORKSPACE_CLI_CLIENT_SECRET` env vars
+2. `~/.config/gws/client_secret.json` file
+
+## Scopes Configuration
+
+By default, `gws auth login` requests these scopes:
+
+- `https://www.googleapis.com/auth/drive`
+- `https://www.googleapis.com/auth/spreadsheets`
+- `https://www.googleapis.com/auth/gmail.modify`
+- `https://www.googleapis.com/auth/calendar`
+- `https://www.googleapis.com/auth/documents`
+- `https://www.googleapis.com/auth/presentations`
+- `https://www.googleapis.com/auth/tasks`
+
+To request different scopes:
+
+```bash
+# Read-only scopes
+gws auth login --readonly
+
+# All scopes (including restricted ones like cloud-platform, pubsub)
+gws auth login --full
+
+# Custom scopes
+gws auth login --scopes https://www.googleapis.com/auth/drive.readonly,https://www.googleapis.com/auth/gmail.readonly
+```
+
+## Verifying the Setup
+
+Check that authentication is working:
+
+```bash
+# View auth status
+gws auth status
+
+# Test with a simple API call
+gws drive files list --params '{"pageSize": 5}'
+```
+
+## Troubleshooting
+
+### "No OAuth client configured" Error
+
+This means `gws` can't find `client_secret.json`. Verify:
+
+```bash
+ls -la ~/.config/gws/client_secret.json
+```
+
+If the file doesn't exist, repeat Step 5-6 above.
+
+### "Invalid client_secret.json format" Error
+
+The file must match the Google Cloud Console download format with an `installed` wrapper object. Verify:
+
+```bash
+cat ~/.config/gws/client_secret.json | jq '.installed.client_id'
+```
+
+If this returns `null`, re-download the file from the Console.
+
+### "redirect_uri_mismatch" Error
+
+The OAuth client must be type **Desktop app** with redirect URI `http://localhost`. Verify in the Cloud Console:
+
+1. Go to Credentials
+2. Click your OAuth client
+3. Check **Application type** is "Desktop app"
+4. Check **Authorized redirect URIs** includes `http://localhost`
+
+## Security Considerations
+
+<Warning>
+The `client_secret.json` file contains your OAuth client secret in plaintext. While this is standard for desktop applications, keep the file permissions restricted (`chmod 600`).
+</Warning>
+
+- Never commit `client_secret.json` to version control
+- Add `~/.config/gws/` to `.gitignore` if working in a repo
+- Rotate the client secret if it's ever exposed
+
+The actual user credentials (refresh token) are always encrypted in `credentials.enc`.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Interactive Auth" icon="browser" href="/auth/interactive">
+    Learn about the automated setup flow
+  </Card>
+  <Card title="Headless/CI Setup" icon="server" href="/auth/headless-ci">
+    Use these credentials in CI/CD environments
+  </Card>
+</CardGroup>

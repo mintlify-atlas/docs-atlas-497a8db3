@@ -1,80 +1,377 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get up and running with gws in 5 minutes
 ---
 
-## Get started in three steps
+# Quickstart
 
-Get your documentation site running locally and make your first customization.
+This guide will walk you through installing the Google Workspace CLI, setting up authentication, and running your first commands.
 
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+<Steps>
+  <Step title="Install the CLI">
+    Install `gws` via npm:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```bash Terminal
+    npm install -g @googleworkspace/cli
+    ```
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    Verify the installation:
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
+    ```bash Terminal
+    gws --version
+    ```
+    
+    <Accordion title="Expected output">
+      ```text
+      gws 0.3.3
+      ```
+    </Accordion>
+    
+    <Note>
+      Alternatively, you can [build from source](/installation#build-from-source) using Cargo if you prefer.
+    </Note>
+  </Step>
+  
+  <Step title="Set up authentication">
+    Run the interactive setup command to create a Google Cloud project and configure OAuth:
+    
+    ```bash Terminal
+    gws auth setup
+    ```
+    
+    This command will:
+    
+    - Create a new Google Cloud project (or use an existing one)
+    - Enable required Google Workspace APIs
+    - Create OAuth 2.0 credentials
+    - Walk you through the OAuth consent flow
+    - Store encrypted credentials in your OS keyring
+    
+    <Warning>
+      `gws auth setup` requires the [gcloud CLI](https://cloud.google.com/sdk/docs/install) to be installed and authenticated.
+    </Warning>
+    
+    <Accordion title="What if gws auth setup doesn't work?">
+      If automated setup fails, you can [configure OAuth manually](/auth/manual-oauth) through the Google Cloud Console:
+      
+      1. Create an OAuth 2.0 Desktop client
+      2. Download the client secret JSON
+      3. Save it to `~/.config/gws/client_secret.json`
+      4. Run `gws auth login`
+    </Accordion>
+  </Step>
+  
+  <Step title="Run your first command">
+    List files in your Google Drive:
+    
+    ```bash Terminal
+    gws drive files list --params '{"pageSize": 5}'
+    ```
+    
+    <Accordion title="Expected output">
+      ```json
+      {
+        "kind": "drive#fileList",
+        "incompleteSearch": false,
+        "files": [
+          {
+            "kind": "drive#file",
+            "mimeType": "application/vnd.google-apps.folder",
+            "id": "1abc123...",
+            "name": "My Documents"
+          },
+          {
+            "kind": "drive#file",
+            "mimeType": "application/vnd.google-apps.spreadsheet",
+            "id": "1xyz789...",
+            "name": "Q1 Budget"
+          }
+        ]
+      }
+      ```
+    </Accordion>
+    
+    <Tip>
+      All responses are structured JSON by default. Use `--format table` for human-readable output.
+    </Tip>
+  </Step>
+  
+  <Step title="Explore available services">
+    See all available Google Workspace services:
+    
+    ```bash Terminal
+    gws --help
+    ```
+    
+    <Accordion title="Sample output">
+      ```text
+      gws — Google Workspace CLI
+      
+      USAGE:
+          gws <service> <resource> [sub-resource] <method> [flags]
+          gws schema <service.resource.method> [--resolve-refs]
+      
+      SERVICES:
+          drive                Drive API - File storage and sync
+          gmail                Gmail API - Email management
+          calendar             Calendar API - Events and scheduling
+          sheets               Sheets API - Spreadsheets
+          docs                 Docs API - Document editing
+          slides               Slides API - Presentations
+          chat                 Chat API - Messaging
+          admin                Admin SDK - Workspace administration
+          people               People API - Contacts
+          tasks                Tasks API - Task management
+      ```
+    </Accordion>
+    
+    Browse commands for a specific service:
+    
+    ```bash Terminal
+    gws drive --help
+    ```
+    
+    <Accordion title="Sample Drive resources">
+      ```text
+      RESOURCES:
+          files                File operations
+          permissions          Sharing and permissions
+          comments             File comments
+          drives               Shared drives
+          changes              Change feed
+          revisions            File revision history
+      ```
+    </Accordion>
+  </Step>
+</Steps>
+
+## Try More Commands
+
+Now that you're set up, try these common operations:
+
+### Create a Spreadsheet
+
+```bash Terminal
+gws sheets spreadsheets create --json '{"properties": {"title": "Q1 Budget"}}'
+```
+
+<Accordion title="Expected output">
+  ```json
+  {
+    "spreadsheetId": "1abc123xyz789...",
+    "properties": {
+      "title": "Q1 Budget",
+      "locale": "en_US",
+      "timeZone": "America/Los_Angeles"
+    },
+    "sheets": [
+      {
+        "properties": {
+          "sheetId": 0,
+          "title": "Sheet1",
+          "index": 0,
+          "sheetType": "GRID"
+        }
+      }
+    ]
+  }
+  ```
 </Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+### Search Gmail Messages
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+```bash Terminal
+gws gmail users messages list --params '{"userId": "me", "q": "from:notifications@github.com", "maxResults": 3}'
+```
 
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
+<Accordion title="Expected output">
+  ```json
+  {
+    "messages": [
+      {
+        "id": "18d1234567890abcd",
+        "threadId": "18d1234567890abcd"
+      },
+      {
+        "id": "18d0987654321efgh",
+        "threadId": "18d0987654321efgh"
+      },
+      {
+        "id": "18d5555555555ijkl",
+        "threadId": "18d5555555555ijkl"
+      }
+    ],
+    "resultSizeEstimate": 47
+  }
+  ```
 </Accordion>
 
-## Next steps
+### Create a Calendar Event
 
-Now that you have your docs running, explore these key features:
+```bash Terminal
+gws calendar events insert \
+  --params '{"calendarId": "primary"}' \
+  --json '{
+    "summary": "Team Standup",
+    "start": {"dateTime": "2026-03-10T10:00:00-08:00"},
+    "end": {"dateTime": "2026-03-10T10:30:00-08:00"}
+  }'
+```
+
+<Accordion title="Expected output">
+  ```json
+  {
+    "kind": "calendar#event",
+    "id": "abc123def456",
+    "status": "confirmed",
+    "htmlLink": "https://www.google.com/calendar/event?eid=...",
+    "created": "2026-03-05T08:30:00.000Z",
+    "updated": "2026-03-05T08:30:00.000Z",
+    "summary": "Team Standup",
+    "creator": {
+      "email": "you@example.com",
+      "self": true
+    },
+    "organizer": {
+      "email": "you@example.com",
+      "self": true
+    },
+    "start": {
+      "dateTime": "2026-03-10T10:00:00-08:00",
+      "timeZone": "America/Los_Angeles"
+    },
+    "end": {
+      "dateTime": "2026-03-10T10:30:00-08:00",
+      "timeZone": "America/Los_Angeles"
+    }
+  }
+  ```
+</Accordion>
+
+## Useful Flags
+
+`gws` includes powerful flags that work across all commands:
+
+| Flag | Description | Example |
+|------|-------------|----------|
+| `--params <JSON>` | URL/query parameters as JSON | `--params '{"pageSize": 10}'` |
+| `--json <JSON>` | Request body for POST/PATCH/PUT | `--json '{"title": "New Doc"}'` |
+| `--format <FMT>` | Output format: json, table, yaml, csv | `--format table` |
+| `--dry-run` | Preview the request without sending | `--dry-run` |
+| `--page-all` | Auto-paginate all results as NDJSON | `--page-all` |
+| `--upload <PATH>` | Upload a local file (multipart) | `--upload ./file.pdf` |
+| `--output <PATH>` | Save response to file | `--output response.json` |
+
+### Dry Run Example
+
+Preview a request before sending it:
+
+```bash Terminal
+gws chat spaces messages create \
+  --params '{"parent": "spaces/AAAAabcd123"}' \
+  --json '{"text": "Deploy complete!"}' \
+  --dry-run
+```
+
+<Accordion title="Dry run output">
+  ```json
+  {
+    "method": "POST",
+    "url": "https://chat.googleapis.com/v1/spaces/AAAAabcd123/messages",
+    "headers": {
+      "Authorization": "Bearer [redacted]",
+      "Content-Type": "application/json"
+    },
+    "body": {
+      "text": "Deploy complete!"
+    }
+  }
+  ```
+</Accordion>
+
+### Pagination Example
+
+Fetch all pages and stream results as NDJSON:
+
+```bash Terminal
+gws drive files list \
+  --params '{"pageSize": 100}' \
+  --page-all \
+  | jq -r '.files[].name'
+```
+
+<Accordion title="Sample output">
+  ```text
+  My Documents
+  Q1 Budget.xlsx
+  Team Photos
+  Project Roadmap.pdf
+  Meeting Notes.docx
+  ...
+  ```
+  
+  Each page is emitted as a separate JSON line. Pipe to `jq` to extract specific fields.
+</Accordion>
+
+## Schema Introspection
+
+Use `gws schema` to inspect API method schemas without leaving your terminal:
+
+```bash Terminal
+gws schema drive.files.list
+```
+
+<Accordion title="Schema output">
+  ```json
+  {
+    "id": "drive.files.list",
+    "path": "drive/v3/files",
+    "httpMethod": "GET",
+    "description": "Lists the user's files.",
+    "parameters": {
+      "pageSize": {
+        "type": "integer",
+        "description": "The maximum number of files to return per page.",
+        "minimum": "1",
+        "maximum": "1000",
+        "default": "100"
+      },
+      "pageToken": {
+        "type": "string",
+        "description": "Token for continuing a previous list request."
+      },
+      "q": {
+        "type": "string",
+        "description": "Query string for searching files."
+      }
+    },
+    "scopes": [
+      "https://www.googleapis.com/auth/drive",
+      "https://www.googleapis.com/auth/drive.readonly"
+    ]
+  }
+  ```
+</Accordion>
+
+Inspect response schemas with `--resolve-refs`:
+
+```bash Terminal
+gws schema drive.File --resolve-refs
+```
+
+## Next Steps
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Authentication Options" icon="key" href="/auth/interactive">
+    Learn about headless auth, service accounts, and CI workflows
+  </Card>
+  <Card title="Command Reference" icon="book" href="/commands/overview">
+    Browse all available services and commands
+  </Card>
+  <Card title="Advanced Features" icon="wand-magic-sparkles" href="/advanced/pagination">
+    Master pagination, uploads, and schema introspection
+  </Card>
+  <Card title="AI Integration" icon="robot" href="/ai/agent-skills">
+    Use gws with AI agents via MCP or OpenCode skills
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

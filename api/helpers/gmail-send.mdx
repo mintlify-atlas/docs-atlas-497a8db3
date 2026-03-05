@@ -1,0 +1,110 @@
+---
+title: 'gmail +send'
+description: 'Send an email via Gmail with automatic RFC 2822 formatting'
+---
+
+## Overview
+
+The `gws gmail +send` helper command provides a simple interface for sending plain-text emails through Gmail. It automatically handles RFC 2822 message formatting and base64 URL-safe encoding required by the Gmail API.
+
+## Command Syntax
+
+```bash
+gws gmail +send --to EMAIL --subject SUBJECT --body TEXT
+```
+
+## Parameters
+
+<ParamField path="to" type="string" required>
+  Recipient email address
+</ParamField>
+
+<ParamField path="subject" type="string" required>
+  Email subject line
+</ParamField>
+
+<ParamField path="body" type="string" required>
+  Email body content (plain text only)
+</ParamField>
+
+## Examples
+
+### Basic email
+
+Send a simple plain-text email:
+
+```bash
+gws gmail +send --to alice@example.com --subject 'Hello' --body 'Hi Alice!'
+```
+
+### Multi-line body
+
+Send an email with a longer message:
+
+```bash
+gws gmail +send \
+  --to team@company.com \
+  --subject 'Weekly Update' \
+  --body 'Hi team,\n\nHere are this week\'s updates:\n\n- Project X shipped\n- New hires onboarded\n\nThanks!'
+```
+
+### Using shell variables
+
+```bash
+RECIPIENT="bob@example.com"
+SUBJECT="Reminder: Meeting Tomorrow"
+BODY="Don't forget our 2pm meeting tomorrow."
+
+gws gmail +send --to "$RECIPIENT" --subject "$SUBJECT" --body "$BODY"
+```
+
+## Output Format
+
+Returns a JSON object with the sent message details:
+
+```json
+{
+  "id": "18d4f2e1a3b5c6d7",
+  "threadId": "18d4f2e1a3b5c6d7",
+  "labelIds": ["SENT"]
+}
+```
+
+## How It Works
+
+1. **RFC 2822 Formatting**: Constructs a properly formatted email message:
+   ```
+   To: recipient@example.com\r\n
+   Subject: Email Subject\r\n
+   \r\n
+   Email body text
+   ```
+
+2. **Base64 Encoding**: Encodes the message using URL-safe base64 encoding (required by Gmail API)
+
+3. **API Call**: Executes `users.messages.send` with the encoded message in the `raw` field
+
+4. **Authentication**: Uses OAuth2 with `gmail.modify` scope
+
+## Limitations
+
+This helper is designed for simple plain-text emails. For advanced features, use the raw Gmail API:
+
+- **HTML emails**: Use the raw API with `Content-Type: text/html`
+- **Attachments**: Use multipart MIME encoding
+- **CC/BCC recipients**: Include `Cc:` and `Bcc:` headers
+- **Custom headers**: Add headers like `Reply-To` or `X-*` headers
+
+### Example with raw API
+
+```bash
+gws gmail users messages send --params '{"userId":"me"}' --json '{
+  "raw": "...(base64-encoded MIME message)..."
+}'
+```
+
+## Related
+
+- [gws-gmail-send skill](/skills/gws-gmail-send) — AI agent integration
+- [gmail +triage](/api/helpers/gmail-triage) — View unread emails
+- [gmail +watch](/api/helpers/gmail-watch) — Stream new emails

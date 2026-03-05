@@ -1,0 +1,196 @@
+---
+title: 'chat +send'
+description: 'Send a message to a Google Chat space'
+---
+
+## Overview
+
+The `gws chat +send` helper command provides a simple way to send text messages to Google Chat spaces. It wraps the Chat API's `spaces.messages.create` method.
+
+## Command Syntax
+
+```bash
+gws chat +send --space NAME --text TEXT
+```
+
+## Parameters
+
+<ParamField path="space" type="string" required>
+  Space name/ID in the format `spaces/AAAA...`. Use `gws chat spaces list` to find space names
+</ParamField>
+
+<ParamField path="text" type="string" required>
+  Plain text message content to send
+</ParamField>
+
+## Examples
+
+### Basic message
+
+Send a simple text message:
+
+```bash
+gws chat +send --space spaces/AAAAxxxx --text 'Hello team!'
+```
+
+### Multi-line message
+
+```bash
+gws chat +send \
+  --space spaces/AAAAxxxx \
+  --text 'Build Status:\n✅ Tests passed\n✅ Deploy complete\n\nVersion: 1.2.3'
+```
+
+### Using variables
+
+```bash
+SPACE_ID="spaces/AAAAxxxxYYYYzzzz"
+MESSAGE="Deployment to production completed successfully"
+
+gws chat +send --space "$SPACE_ID" --text "$MESSAGE"
+```
+
+### Alert notification
+
+```bash
+ERROR_COUNT=$(grep ERROR /var/log/app.log | wc -l)
+
+if [ "$ERROR_COUNT" -gt 0 ]; then
+  gws chat +send \
+    --space spaces/AAAAxxxx \
+    --text "⚠️ Alert: Found $ERROR_COUNT errors in application logs"
+fi
+```
+
+## Finding Space Names
+
+Use the Chat API to list spaces and get their IDs:
+
+```bash
+# List all spaces
+gws chat spaces list --params '{"pageSize":50}' --format table
+
+# Get a specific space
+gws chat spaces get --params '{"name":"spaces/AAAAxxxx"}'
+```
+
+The space name will be in the format `spaces/AAAAxxxxYYYYzzzz`.
+
+## Output Format
+
+Returns the created message object:
+
+```json
+{
+  "name": "spaces/AAAAxxxx/messages/xyz123.abc456",
+  "sender": {
+    "name": "users/123456789",
+    "displayName": "Your Name",
+    "email": "you@example.com",
+    "type": "HUMAN"
+  },
+  "createTime": "2026-03-05T10:30:00.123456Z",
+  "text": "Hello team!",
+  "thread": {
+    "name": "spaces/AAAAxxxx/threads/xyz789"
+  }
+}
+```
+
+## How It Works
+
+1. **Space Validation**: The space name must be in the correct format (`spaces/...`)
+2. **Message Construction**: Builds a JSON body with the `text` field
+3. **API Call**: Executes `spaces.messages.create` with:
+   - Path parameter: `parent` (the space name)
+   - Request body: `{"text": "..."}`
+4. **Authentication**: Uses OAuth2 with appropriate Chat API scopes
+
+## Limitations
+
+This helper sends plain text messages only. For advanced features, use the raw Chat API:
+
+- **Rich formatting**: Use `cardsV2` for interactive cards
+- **Threaded replies**: Specify `thread.name` or `threadKey`
+- **Mentions**: Use `<users/123>` format in text
+- **Attachments**: Use `attachment` field
+- **Custom names**: Use `messageId` for idempotency
+
+### Example with cards (raw API)
+
+```bash
+gws chat spaces messages create \
+  --params '{"parent":"spaces/AAAAxxxx"}' \
+  --json '{
+    "cardsV2": [{
+      "cardId": "unique-card",
+      "card": {
+        "header": {"title": "Build Status"},
+        "sections": [{
+          "widgets": [{
+            "textParagraph": {"text": "All tests passed!"}
+          }]
+        }]
+      }
+    }]
+  }'
+```
+
+### Example with threaded reply
+
+```bash
+# Reply to an existing thread
+gws chat spaces messages create \
+  --params '{"parent":"spaces/AAAAxxxx"}' \
+  --json '{
+    "text": "Reply message",
+    "thread": {"name": "spaces/AAAAxxxx/threads/xyz789"}
+  }'
+```
+
+## Common Patterns
+
+### CI/CD notifications
+
+```bash
+#!/bin/bash
+SPACE="spaces/AAAAxxxx"
+
+if ./run-tests.sh; then
+  gws chat +send --space "$SPACE" --text "✅ Tests passed (commit: $GIT_SHA)"
+else
+  gws chat +send --space "$SPACE" --text "❌ Tests failed (commit: $GIT_SHA)"
+fi
+```
+
+### Monitoring alerts
+
+```bash
+# Cron job to check service health
+STATUS=$(curl -s -o /dev/null -w '%{http_code}' https://api.example.com/health)
+
+if [ "$STATUS" != "200" ]; then
+  gws chat +send \
+    --space spaces/AAAAxxxx \
+    --text "🚨 Service health check failed: HTTP $STATUS"
+fi
+```
+
+### Interactive bot responses
+
+```bash
+# Read incoming messages and respond
+gws chat spaces messages list \
+  --params '{"parent":"spaces/AAAAxxxx","pageSize":1}' | \
+  jq -r '.messages[0].text' | \
+  while read msg; do
+    response="You said: $msg"
+    gws chat +send --space spaces/AAAAxxxx --text "$response"
+  done
+```
+
+## Related
+
+- [gws-chat-send skill](/skills/gws-chat-send) — AI agent integration
+- [gws-chat skill](/skills/gws-chat) — Full Chat API reference
+- [Chat API documentation](https://developers.google.com/chat/api/reference/rest/v1/spaces.messages/create)

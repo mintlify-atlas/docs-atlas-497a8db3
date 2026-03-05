@@ -1,0 +1,211 @@
+---
+title: "Command Reference Overview"
+description: "Learn the gws command structure and common patterns"
+---
+
+## Command Structure
+
+All `gws` commands follow a consistent structure:
+
+```bash
+gws <service> <resource> <method> [flags]
+```
+
+### Components
+
+- **service**: The Google Workspace API to use (e.g., `drive`, `gmail`, `calendar`)
+- **resource**: The API resource type (e.g., `files`, `messages`, `events`)
+- **method**: The operation to perform (e.g., `list`, `create`, `update`, `delete`)
+- **flags**: Optional parameters to customize the request
+
+### Examples
+
+```bash
+# List Drive files
+gws drive files list --params '{"pageSize": 10}'
+
+# Send a Gmail message
+gws gmail users messages send --params '{"userId": "me"}' --json '{...}'
+
+# Create a Calendar event
+gws calendar events insert --params '{"calendarId": "primary"}' --json '{...}'
+```
+
+## Common Flags
+
+These flags work across all commands:
+
+### `--params`
+
+Pass query parameters and path parameters as JSON:
+
+```bash
+gws drive files list --params '{"pageSize": 5, "orderBy": "modifiedTime desc"}'
+```
+
+### `--json`
+
+Provide the request body as JSON:
+
+```bash
+gws sheets spreadsheets create --json '{"properties": {"title": "Q1 Budget"}}'
+```
+
+### `--dry-run`
+
+Validate the request without sending it to the API:
+
+```bash
+gws drive files create --json '{...}' --dry-run
+```
+
+### `--page-all`
+
+Automatically fetch all pages of results (output as NDJSON):
+
+```bash
+gws drive files list --params '{"pageSize": 100}' --page-all
+```
+
+### `--page-limit`
+
+Limit the number of pages to fetch (default: 10):
+
+```bash
+gws drive files list --page-all --page-limit 5
+```
+
+### `--page-delay`
+
+Set delay between page requests in milliseconds (default: 100):
+
+```bash
+gws drive files list --page-all --page-delay 500
+```
+
+### `--format`
+
+Specify output format (json, table, yaml, csv):
+
+```bash
+gws drive files list --format table
+```
+
+### `--upload`
+
+Upload a file with multipart request:
+
+```bash
+gws drive files create --json '{"name": "report.pdf"}' --upload ./report.pdf
+```
+
+### `--sanitize`
+
+Sanitize API responses through Model Armor:
+
+```bash
+gws gmail users messages get --params '{...}' --sanitize "projects/P/locations/L/templates/T"
+```
+
+## Using --help
+
+Every command, resource, and method has built-in help:
+
+```bash
+# Top-level help
+gws --help
+
+# Service help
+gws drive --help
+
+# Resource help
+gws drive files --help
+
+# Method help
+gws drive files list --help
+```
+
+## Dynamic Discovery
+
+`gws` doesn't ship with a static list of commands. It reads Google's [Discovery Service](https://developers.google.com/discovery) at runtime, so when Google adds new API endpoints or methods, `gws` picks them up automatically.
+
+To introspect any method's schema:
+
+```bash
+gws schema drive.files.list
+gws schema gmail.users.messages.send --resolve-refs
+```
+
+## Helper Commands
+
+Some services include helper commands (prefixed with `+`) for common workflows:
+
+- **Drive**: `+upload`
+- **Gmail**: `+send`, `+watch`, `+triage`
+- **Calendar**: `+insert`
+- **Sheets**: `+append`, `+read`
+- **Docs**: `+write`
+- **Chat**: `+send`
+
+Example:
+
+```bash
+gws drive +upload ./report.pdf --parent FOLDER_ID
+gws gmail +send --to user@example.com --subject "Hello" --body "Hi there!"
+```
+
+See individual service pages for complete helper command documentation.
+
+## Service Pages
+
+Detailed command examples for each service:
+
+<CardGroup cols={2}>
+
+<Card title="Drive" icon="google-drive" href="/commands/drive">
+  Manage files, folders, and shared drives
+</Card>
+
+<Card title="Gmail" icon="envelope" href="/commands/gmail">
+  Send, read, and manage email
+</Card>
+
+<Card title="Calendar" icon="calendar" href="/commands/calendar">
+  Manage calendars and events
+</Card>
+
+<Card title="Sheets" icon="table" href="/commands/sheets">
+  Read and write spreadsheets
+</Card>
+
+<Card title="Docs" icon="file-lines" href="/commands/docs">
+  Read and write Google Docs
+</Card>
+
+<Card title="Chat" icon="comments" href="/commands/chat">
+  Manage Chat spaces and messages
+</Card>
+
+<Card title="Admin" icon="user-gear" href="/commands/admin">
+  Manage users, groups, and devices
+</Card>
+
+<Card title="All Services" icon="list" href="/commands/all-services">
+  Complete service reference table
+</Card>
+
+</CardGroup>
+
+## Environment Variables
+
+Control behavior with environment variables:
+
+| Variable | Description |
+|----------|-------------|
+| `GOOGLE_WORKSPACE_CLI_TOKEN` | Pre-obtained OAuth2 access token |
+| `GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE` | Path to credentials JSON |
+| `GOOGLE_WORKSPACE_CLI_IMPERSONATED_USER` | For service account domain-wide delegation |
+| `GOOGLE_WORKSPACE_CLI_SANITIZE_TEMPLATE` | Default Model Armor template |
+| `GOOGLE_WORKSPACE_CLI_SANITIZE_MODE` | `warn` (default) or `block` |
+
+You can also use a `.env` file in your working directory.

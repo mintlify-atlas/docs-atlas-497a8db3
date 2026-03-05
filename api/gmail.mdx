@@ -1,0 +1,220 @@
+---
+title: "Gmail API"
+description: "Send, read, and manage email"
+---
+
+## Overview
+
+The Gmail API provides access to Gmail mailboxes and allows you to send email, manage drafts, labels, threads, and more.
+
+**API Name:** `gmail`  
+**Version:** `v1`  
+**Official Documentation:** [Gmail API Reference](https://developers.google.com/gmail/api/reference/rest)
+
+## Common Resources
+
+### Messages
+
+Send, read, and manage email messages.
+
+<ParamField path="userId" type="string" required>
+  The user's email address or `me` for the authenticated user
+</ParamField>
+
+<ParamField path="id" type="string">
+  The message ID
+</ParamField>
+
+<ParamField path="q" type="string">
+  Gmail search query (e.g., `"is:unread from:boss@example.com"`)
+</ParamField>
+
+<ParamField path="maxResults" type="integer">
+  Maximum number of messages to return (default: 100, max: 500)
+</ParamField>
+
+### Labels
+
+Organize messages with labels.
+
+<ParamField path="userId" type="string" required>
+  The user's email address or `me`
+</ParamField>
+
+<ParamField path="id" type="string">
+  The label ID
+</ParamField>
+
+<ParamField path="name" type="string">
+  The display name of the label
+</ParamField>
+
+### Drafts
+
+Create and manage draft messages.
+
+<ParamField path="userId" type="string" required>
+  The user's email address or `me`
+</ParamField>
+
+<ParamField path="id" type="string">
+  The draft ID
+</ParamField>
+
+## Common Methods
+
+### List Messages
+
+```bash
+gws gmail users messages list \
+  --params '{"userId": "me", "maxResults": 10}'
+```
+
+<ResponseField name="messages" type="array">
+  Array of message objects
+  
+  <ResponseField name="id" type="string">
+    The message ID
+  </ResponseField>
+  
+  <ResponseField name="threadId" type="string">
+    The thread ID this message belongs to
+  </ResponseField>
+</ResponseField>
+
+### Get Message
+
+```bash
+gws gmail users messages get \
+  --params '{"userId": "me", "id": "18d1e2f3a4b5c6d7"}'
+```
+
+### Send Email
+
+```bash
+echo -e "To: recipient@example.com\nSubject: Hello\n\nMessage body" | \
+  base64 | \
+  gws gmail users messages send \
+    --params '{"userId": "me"}' \
+    --json '{"raw": "<base64-encoded-message>"}'
+```
+
+### Search Messages
+
+<CodeGroup>
+```bash Unread messages
+gws gmail users messages list --params '{
+  "userId": "me",
+  "q": "is:unread",
+  "maxResults": 20
+}'
+```
+
+```bash From specific sender
+gws gmail users messages list --params '{
+  "userId": "me",
+  "q": "from:boss@example.com",
+  "maxResults": 50
+}'
+```
+
+```bash With attachment
+gws gmail users messages list --params '{
+  "userId": "me",
+  "q": "has:attachment"
+}'
+```
+</CodeGroup>
+
+### Modify Labels
+
+```bash
+gws gmail users messages modify \
+  --params '{"userId": "me", "id": "18d1e2f3a4b5c6d7"}' \
+  --json '{
+    "addLabelIds": ["IMPORTANT"],
+    "removeLabelIds": ["UNREAD"]
+  }'
+```
+
+### Create Draft
+
+```bash
+echo -e "To: recipient@example.com\nSubject: Draft\n\nDraft content" | \
+  base64 | \
+  gws gmail users drafts create \
+    --params '{"userId": "me"}' \
+    --json '{"message": {"raw": "<base64-encoded-message>"}}'
+```
+
+### List Labels
+
+```bash
+gws gmail users labels list --params '{"userId": "me"}'
+```
+
+## Response Format
+
+Message list response:
+
+```json
+{
+  "messages": [
+    {
+      "id": "18d1e2f3a4b5c6d7",
+      "threadId": "18d1e2f3a4b5c6d7"
+    }
+  ],
+  "nextPageToken": "xyz789...",
+  "resultSizeEstimate": 42
+}
+```
+
+Full message response:
+
+```json
+{
+  "id": "18d1e2f3a4b5c6d7",
+  "threadId": "18d1e2f3a4b5c6d7",
+  "labelIds": ["INBOX", "UNREAD"],
+  "snippet": "Hello, this is a preview of the email...",
+  "payload": {
+    "headers": [
+      {"name": "From", "value": "sender@example.com"},
+      {"name": "Subject", "value": "Important Update"}
+    ],
+    "body": {"data": "SGVsbG8gd29ybGQ="}
+  }
+}
+```
+
+## Related Helper Commands
+
+- `+send` - Send an email message
+- `+triage` - Show unread inbox summary
+- `+watch` - Watch for new emails and stream as NDJSON
+
+## Key Resources
+
+- `users.messages` - Send, read, manage messages
+- `users.drafts` - Create and manage drafts
+- `users.labels` - Create and manage labels
+- `users.threads` - Manage email threads
+- `users.settings` - Manage Gmail settings
+- `users.history` - Track mailbox changes
+
+## Learn More
+
+- [Gmail API Guide](https://developers.google.com/gmail/api/guides)
+- [Sending email](https://developers.google.com/gmail/api/guides/sending)
+- [Search queries](https://support.google.com/mail/answer/7190)
+- [Push notifications](https://developers.google.com/gmail/api/guides/push)
+
+## Schema Inspection
+
+Before calling any method, inspect its schema:
+
+```bash
+gws schema gmail.users.messages.list
+gws schema gmail.users.messages.send
+```

@@ -1,0 +1,220 @@
+---
+title: "Drive Commands"
+description: "Manage files, folders, and shared drives with Google Drive API"
+---
+
+## Overview
+
+The Drive service provides access to Google Drive v3 API for managing files, folders, permissions, and shared drives.
+
+**API**: `drive` (v3)
+
+## Common Use Cases
+
+- List and search files
+- Upload and download files
+- Manage permissions and sharing
+- Organize files in folders
+- Work with shared drives
+
+## Helper Commands
+
+### `+upload`
+
+Upload a file with automatic metadata detection:
+
+```bash
+gws drive +upload ./report.pdf
+gws drive +upload ./report.pdf --parent FOLDER_ID
+gws drive +upload ./data.csv --name 'Sales Data.csv'
+```
+
+**Features**:
+- Automatic MIME type detection
+- Infers filename from local path
+- Optional parent folder assignment
+
+## Command Examples
+
+### List Files
+
+<CodeGroup>
+
+```bash List recent files
+gws drive files list --params '{"pageSize": 10, "orderBy": "modifiedTime desc"}'
+```
+
+```bash Search by name
+gws drive files list --params '{"q": "name contains '\''report'\''"}'}
+```
+
+```bash List files in folder
+gws drive files list --params '{"q": "'\''FOLDER_ID'\'' in parents"}'
+```
+
+```bash Get all files (paginated)
+gws drive files list --params '{"pageSize": 100}' --page-all
+```
+
+</CodeGroup>
+
+<Accordion title="Example Response">
+```json
+{
+  "kind": "drive#fileList",
+  "files": [
+    {
+      "kind": "drive#file",
+      "id": "1abc...",
+      "name": "Q1 Report.pdf",
+      "mimeType": "application/pdf",
+      "modifiedTime": "2026-03-01T10:30:00.000Z"
+    }
+  ]
+}
+```
+</Accordion>
+
+### Get File Metadata
+
+```bash
+gws drive files get --params '{"fileId": "FILE_ID"}'
+```
+
+<Accordion title="Example Response">
+```json
+{
+  "kind": "drive#file",
+  "id": "1abc...",
+  "name": "Budget 2026.xlsx",
+  "mimeType": "application/vnd.google-apps.spreadsheet",
+  "createdTime": "2026-01-15T09:00:00.000Z",
+  "modifiedTime": "2026-03-01T14:30:00.000Z",
+  "owners": [
+    {
+      "displayName": "Alice Smith",
+      "emailAddress": "alice@example.com"
+    }
+  ]
+}
+```
+</Accordion>
+
+### Create a File
+
+```bash Create empty file
+gws drive files create --json '{"name": "My Document", "mimeType": "application/vnd.google-apps.document"}'
+```
+
+```bash Upload file with metadata
+gws drive files create --json '{"name": "report.pdf", "parents": ["FOLDER_ID"]}' --upload ./report.pdf
+```
+
+### Create a Folder
+
+```bash
+gws drive files create --json '{"name": "Projects", "mimeType": "application/vnd.google-apps.folder"}'
+```
+
+### Update File Metadata
+
+```bash Rename file
+gws drive files update --params '{"fileId": "FILE_ID"}' --json '{"name": "New Name.pdf"}'
+```
+
+```bash Move to folder
+gws drive files update --params '{"fileId": "FILE_ID", "addParents": "NEW_FOLDER_ID", "removeParents": "OLD_FOLDER_ID"}'
+```
+
+### Delete a File
+
+```bash Move to trash
+gws drive files update --params '{"fileId": "FILE_ID"}' --json '{"trashed": true}'
+```
+
+```bash Permanent delete
+gws drive files delete --params '{"fileId": "FILE_ID"}'
+```
+
+### Manage Permissions
+
+```bash Share with user
+gws drive permissions create --params '{"fileId": "FILE_ID"}' --json '{"type": "user", "role": "reader", "emailAddress": "user@example.com"}'
+```
+
+```bash Share with domain
+gws drive permissions create --params '{"fileId": "FILE_ID"}' --json '{"type": "domain", "role": "reader", "domain": "example.com"}'
+```
+
+```bash Make public
+gws drive permissions create --params '{"fileId": "FILE_ID"}' --json '{"type": "anyone", "role": "reader"}'
+```
+
+```bash List permissions
+gws drive permissions list --params '{"fileId": "FILE_ID"}'
+```
+
+### Export Google Workspace Files
+
+```bash Export Doc as PDF
+gws drive files export --params '{"fileId": "FILE_ID", "mimeType": "application/pdf"}' > document.pdf
+```
+
+```bash Export Sheet as CSV
+gws drive files export --params '{"fileId": "FILE_ID", "mimeType": "text/csv"}' > data.csv
+```
+
+### Copy a File
+
+```bash
+gws drive files copy --params '{"fileId": "FILE_ID"}' --json '{"name": "Copy of Document"}'
+```
+
+## Advanced Queries
+
+The `q` parameter supports powerful search operators:
+
+```bash Files modified after date
+gws drive files list --params '{"q": "modifiedTime > '\''2026-01-01T00:00:00'\''"}}'
+```
+
+```bash Files owned by user
+gws drive files list --params '{"q": "'\''user@example.com'\'' in owners"}'
+```
+
+```bash Shared files
+gws drive files list --params '{"q": "sharedWithMe"}'
+```
+
+```bash Starred files
+gws drive files list --params '{"q": "starred = true"}'
+```
+
+```bash Combine conditions
+gws drive files list --params '{"q": "name contains '\''budget'\'' and mimeType = '\''application/pdf'\''"}}'
+```
+
+## Resources
+
+- `files` - File and folder operations
+- `permissions` - Sharing and access control
+- `drives` - Shared drive management
+- `comments` - File comments
+- `replies` - Comment replies
+- `revisions` - File version history
+
+Use `gws drive <resource> --help` to see all available methods.
+
+## Related Commands
+
+<CardGroup cols={2}>
+
+<Card title="Sheets" icon="table" href="/commands/sheets">
+  Work with spreadsheet data
+</Card>
+
+<Card title="Docs" icon="file-lines" href="/commands/docs">
+  Edit document content
+</Card>
+
+</CardGroup>
