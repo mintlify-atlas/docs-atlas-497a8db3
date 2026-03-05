@@ -1,0 +1,152 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "Google Workspace CLI",
+  "projectDescription": "Dynamic CLI for Google Workspace APIs built from Discovery Service with 100+ AI agent skills",
+  "theme": "aspen",
+  "primaryColor": "#5c646c",
+  "lightColor": "#e2833f",
+  "darkColor": "#2891a4",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/dynamic-discovery",
+              "concepts/authentication",
+              "concepts/output-format"
+            ]
+          },
+          {
+            "group": "Authentication",
+            "pages": [
+              "auth/interactive",
+              "auth/manual-oauth",
+              "auth/headless-ci",
+              "auth/service-account"
+            ]
+          },
+          {
+            "group": "Command Reference",
+            "pages": [
+              "commands/overview",
+              "commands/drive",
+              "commands/gmail",
+              "commands/calendar",
+              "commands/sheets",
+              "commands/docs",
+              "commands/chat",
+              "commands/admin",
+              "commands/all-services"
+            ]
+          },
+          {
+            "group": "Advanced Usage",
+            "pages": [
+              "advanced/pagination",
+              "advanced/uploads",
+              "advanced/dry-run",
+              "advanced/schema-introspection",
+              "advanced/model-armor"
+            ]
+          },
+          {
+            "group": "AI Integration",
+            "pages": [
+              "ai/agent-skills",
+              "ai/mcp-server",
+              "ai/gemini-extension",
+              "ai/skills-index"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/architecture",
+              "development/building",
+              "development/testing",
+              "development/contributing"
+            ]
+          },
+          {
+            "group": "Troubleshooting",
+            "pages": [
+              "troubleshooting/api-not-enabled",
+              "troubleshooting/auth-errors",
+              "troubleshooting/common-issues"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Services",
+            "pages": [
+              "api/drive",
+              "api/gmail",
+              "api/calendar",
+              "api/sheets",
+              "api/docs",
+              "api/slides",
+              "api/chat",
+              "api/admin",
+              "api/tasks",
+              "api/people"
+            ]
+          },
+          {
+            "group": "Helper Commands",
+            "pages": [
+              "api/helpers/drive-upload",
+              "api/helpers/gmail-send",
+              "api/helpers/sheets-append",
+              "api/helpers/calendar-insert",
+              "api/helpers/chat-send"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Dynamic command surface from Google Discovery Service",
+    "OAuth2, Service Account, and headless authentication",
+    "Structured JSON output for AI agents",
+    "100+ agent skills for Drive, Gmail, Calendar, Sheets, Docs, Chat",
+    "MCP server for Model Context Protocol clients",
+    "Auto-pagination and multipart file uploads",
+    "Schema introspection with gws schema command",
+    "Model Armor integration for response sanitization",
+    "Gemini CLI extension support"
+  ],
+  "publicApiSurface": [
+    "gws drive files list",
+    "gws gmail users messages list",
+    "gws calendar events list",
+    "gws sheets spreadsheets create",
+    "gws docs documents create",
+    "gws chat spaces messages create",
+    "gws admin users list",
+    "gws auth setup",
+    "gws auth login",
+    "gws schema <service.resource.method>",
+    "gws mcp --services <list>",
+    "gws drive-upload <file>",
+    "gws gmail-send --to <email> --subject <text> --body <text>",
+    "gws sheets-append --spreadsheet-id <id> --range <range> --values <json>",
+    "gws calendar-insert --summary <text> --start <datetime> --end <datetime>",
+    "gws chat-send --space <id> --text <message>"
+  ]
+}
